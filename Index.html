@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource Hub AI Chatbot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+        }
+        .chat-bubble-user {
+            background-color: #E2F2E9;
+            color: #1a3a3a;
+        }
+        .chat-bubble-bot {
+            background-color: #F3F4F6;
+            color: #1F2937;
+        }
+        .chat-bubble-user p, .chat-bubble-bot p {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+        .chat-bubble-bot a {
+            word-break: break-all;
+        }
+        #chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        #chat-container::-webkit-scrollbar-thumb {
+            background-color: #D1D5DB;
+            border-radius: 3px;
+        }
+        #chat-container::-webkit-scrollbar-track {
+            background-color: #F3F4F6;
+        }
+        .option-button {
+            background-color: #fff;
+            border: 1px solid #D1D5DB;
+            color: #374151;
+            padding: 8px 16px;
+            margin-top: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            font-size: 0.875rem;
+            width: 100%;
+            text-align: left;
+        }
+        .option-button:hover {
+            background-color: #F9FAFB;
+        }
+        .enhance-button {
+            padding: 10px 20px;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 600;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            border: none;
+            background: linear-gradient(45deg, #93c5fd, #3b82f6);
+            color: white;
+        }
+        .enhance-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        .loading-dots span {
+            animation: blink 1.4s infinite both;
+        }
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes blink {
+            0%, 80%, 100% {
+                opacity: 0;
+            }
+            40% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4" style="background-color: #003B25;">
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="w-full max-w-sm mx-auto bg-white rounded-2xl shadow-2xl p-8">
+        <div class="flex flex-col items-center mb-6">
+            <img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/a4/John_Lewis_%26_Partners_logo.svg/1920px-John_Lewis_%26_Partners_logo.svg.png" alt="John Lewis & Partners Logo" class="h-12 w-auto mb-4">
+            <h1 id="login-title" class="text-2xl font-bold text-gray-800">Resource Hub</h1>
+            <p id="login-subtitle" class="text-gray-500">Please enter your Partner ID to begin</p>
+        </div>
+        <form id="login-form">
+            <div class="mb-4">
+                <label for="language-select" id="language-label" class="sr-only">Language</label>
+                <select id="language-select" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-700">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="ro">Română</option>
+                    <option value="pl">Polski</option>
+                    <option value="ru">Русский</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label for="partner-id" class="sr-only">Partner ID</label>
+                <input type="text" id="partner-id" placeholder="Your Partner ID" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-700" required>
+            </div>
+            <p id="login-error" class="text-red-500 text-sm mb-4 text-center hidden"></p>
+            <button type="submit" id="login-button" class="w-full bg-green-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-800 flex items-center justify-center">
+                <span id="login-button-text">Login</span>
+                <svg id="login-spinner" class="animate-spin h-5 w-5 text-white hidden ml-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+        </form>
+    </div>
+
+    <!-- Chat Screen (Initially Hidden) -->
+    <div id="chat-screen" class="w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl flex-col h-[90vh] hidden">
+        <div class="p-6 border-b border-gray-200 flex items-center justify-between bg-white rounded-t-2xl">
+            <div class="flex items-center space-x-4">
+                <img src="https://upload.wikimedia.org/wikipedia/en/thumb/a/a4/John_Lewis_%26_Partners_logo.svg/1920px-John_Lewis_%26_Partners_logo.svg.png" alt="John Lewis & Partners Logo" class="h-12 w-auto">
+                <div>
+                    <h1 id="chat-title" class="text-xl font-bold text-gray-800">Resource Hub AI</h1>
+                    <p id="chat-subtitle" class="text-sm text-gray-500">Your intelligent assistant</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button id="sound-toggle" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-700">
+                    <svg id="sound-off-icon" class="h-6 w-6 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+                    <svg id="sound-on-icon" class="h-6 w-6 text-red-500 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                </button>
+            </div>
+        </div>
+        <div id="chat-container" class="flex-1 p-6 overflow-y-auto bg-gray-50"></div>
+        <div class="p-6 bg-white border-t border-gray-200 rounded-b-2xl">
+            <form id="chat-form" class="flex items-center space-x-4">
+                <input type="text" id="user-input" placeholder="Type your question here..." class="flex-1 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-700">
+                <button type="submit" id="send-button" class="bg-green-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-800">Send</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const loginScreen = document.getElementById('login-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const loginForm = document.getElementById('login-form');
+        const languageSelect = document.getElementById('language-select');
+        const partnerIdInput = document.getElementById('partner-id');
+        const loginError = document.getElementById('login-error');
+        const loginButton = document.getElementById('login-button');
+        const loginButtonText = document.getElementById('login-button-text');
+        const loginSpinner = document.getElementById('login-spinner');
+        const chatContainer = document.getElementById('chat-container');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const soundToggle = document.getElementById('sound-toggle');
+        const soundOnIcon = document.getElementById('sound-on-icon');
+        const soundOffIcon = document.getElementById('sound-off-icon');
+        const sendButton = document.getElementById('send-button');
+
+        // --- Translations ---
+        const translations = {
+            en: {
+                loginTitle: "Resource Hub", loginSubtitle: "Please enter your Partner ID to begin", partnerIdPlaceholder: "Your Partner ID", loginButton: "Login", chatTitle: "Resource Hub AI", chatSubtitle: "Your intelligent assistant", inputPlaceholder: "Type your question here...", sendButton: "Send", commonQuestions: ["How do I report my absence?", "How can I order uniform?", "I don't understand my payslip"], welcomeGreeting: (name) => `Hello, ${name}!`, welcomeIntro: "I'm the Resource Hub assistant. How can I help you today?", invalidId: "Invalid Partner ID. Please try again.", fetchPartnerError: "Failed to fetch partner list. Please ask the developer to re-authorize the Apps Script.", fetchKnowledgeError: "Sorry, I am having trouble accessing my knowledge right now. Please try again later.", aiConnectionError: "I'm having trouble connecting to my AI brain. Please ask the administrator to re-deploy the latest Apps Script and ensure the Cloud project has billing enabled.", elaborateLabel: "Elaborate", simplifyLabel: "Simplify"
+            },
+            es: {
+                loginTitle: "Centro de Recursos", loginSubtitle: "Por favor, ingrese su ID de socio para comenzar", partnerIdPlaceholder: "Su ID de Socio", loginButton: "Iniciar Sesión", chatTitle: "IA del Centro de Recursos", chatSubtitle: "Su asistente inteligente", inputPlaceholder: "Escriba su pregunta aquí...", sendButton: "Enviar", commonQuestions: ["¿Cómo reporto mi ausencia?", "¿Cómo puedo pedir el uniforme?", "No entiendo mi nómina"], welcomeGreeting: (name) => `¡Hola, ${name}!`, welcomeIntro: "Soy el asistente del Centro de Recursos. ¿Cómo puedo ayudarte hoy?", invalidId: "ID de socio no válido. Por favor, inténtelo de nuevo.", fetchPartnerError: "No se pudo cargar la lista de socios. Por favor, pida al desarrollador que vuelva a autorizar el Apps Script.", fetchKnowledgeError: "Lo siento, estoy teniendo problemas para acceder a mi conocimiento en este momento. Por favor, inténtelo de nuevo más tarde.", aiConnectionError: "Estoy teniendo problemas para conectarme a mi cerebro de IA. Por favor, pida al administrador que vuelva a implementar el último Apps Script y se asegure de que el proyecto de la nube tenga la facturación habilitada.", elaborateLabel: "Elaborar", simplifyLabel: "Simplificar"
+            },
+            ro: {
+                loginTitle: "Centru de Resurse", loginSubtitle: "Vă rugăm să introduceți ID-ul de partener pentru a începe", partnerIdPlaceholder: "ID-ul dvs. de partener", loginButton: "Autentificare", chatTitle: "IA Centru de Resurse", chatSubtitle: "Asistentul dumneavoastră inteligent", inputPlaceholder: "Scrieți întrebarea dvs. aici...", sendButton: "Trimite", commonQuestions: ["Cum îmi raportez absența?", "Cum pot comanda uniforma?", "Nu înțeleg fluturașul de salariu"], welcomeGreeting: (name) => `Salut, ${name}!`, welcomeIntro: "Sunt asistentul Centrului de Resurse. Cum te pot ajuta astăzi?", invalidId: "ID de partener invalid. Vă rugăm să încercați din nou.", fetchPartnerError: "Nu s-a putut încărca lista de parteneri. Vă rugăm să solicitați dezvoltatorului să re-autorizeze Apps Script.", fetchKnowledgeError: "Îmi pare rău, întâmpin probleme la accesarea cunoștințelor mele în acest moment. Vă rugăm să încercați din nou mai târziu.", aiConnectionError: "Întâmpin probleme la conectarea la creierul meu AI. Vă rugăm să solicitați administratorului să re-implementeze cel mai recent Apps Script și să se asigure că proiectul cloud are facturarea activată.", elaborateLabel: "Elaborează", simplifyLabel: "Simplifică"
+            },
+            pl: {
+                loginTitle: "Centrum Zasobów", loginSubtitle: "Proszę podać swój identyfikator partnera, aby rozpocząć", partnerIdPlaceholder: "Twój identyfikator partnera", loginButton: "Zaloguj się", chatTitle: "AI Centrum Zasobów", chatSubtitle: "Twój inteligentny asystent", inputPlaceholder: "Wpisz swoje pytanie tutaj...", sendButton: "Wyślij", commonQuestions: ["Jak zgłosić moją nieobecność?", "Jak mogę zamówić mundur?", "Nie rozumiem mojego paska wypłaty"], welcomeGreeting: (name) => `Cześć, ${name}!`, welcomeIntro: "Jestem asystentem Centrum Zasobów. W czym mogę dzisiaj pomóc?", invalidId: "Nieprawidłowy identyfikator partnera. Proszę spróbować ponownie.", fetchPartnerError: "Nie udało się pobrać listy partnerów. Proszę poprosić dewelopera o ponowne autoryzowanie skryptu Apps Script.", fetchKnowledgeError: "Przepraszam, mam problem z dostępem do mojej bazy wiedzy. Proszę spróbować ponownie później.", aiConnectionError: "Mam problem z połączeniem z moim mózgiem AI. Proszę poprosić administratora o ponowne wdrożenie najnowszego skryptu Apps Script i upewnienie się, że projekt w chmurze ma włączone fakturowanie.", elaborateLabel: "Rozwiń", simplifyLabel: "Uprość"
+            },
+            ru: {
+                loginTitle: "Ресурсный центр", loginSubtitle: "Пожалуйста, введите свой ID партнера, чтобы начать", partnerIdPlaceholder: "Ваш ID партнера", loginButton: "Войти", chatTitle: "ИИ Ресурсного центра", chatSubtitle: "Ваш интеллектуальный помощник", inputPlaceholder: "Введите ваш вопрос здесь...", sendButton: "Отправить", commonQuestions: ["Как сообщить о своем отсутствии?", "Как я могу заказать униформу?", "Я не понимаю свой расчетный лист"], welcomeGreeting: (name) => `Здравствуйте, ${name}!`, welcomeIntro: "Я помощник Ресурсного центра. Чем я могу вам сегодня помочь?", invalidId: "Неверный ID партнера. Пожалуйста, попробуйте еще раз.", fetchPartnerError: "Не удалось получить список партнеров. Пожалуйста, попросите разработчика повторно авторизовать скрипт Apps Script.", fetchKnowledgeError: "Извините, у меня возникли проблемы с доступом к моей базе знаний. Пожалуйста, попробуйте позже.", aiConnectionError: "У меня проблемы с подключением к моему ИИ. Пожалуйста, попросите администратора повторно развернуть последний скрипт Apps Script и убедиться, что для облачного проекта включен биллинг.", elaborateLabel: "Подробнее", simplifyLabel: "Упростить"
+            }
+        };
+
+        // --- State ---
+        let partnerList = [];
+        let knowledgeBaseText = "";
+        let handbookText = "";
+        let currentPartnerName = '';
+        let currentPartnerId = ''; // Store partner ID for logging
+        let isSoundOn = false;
+        let availableVoices = [];
+        let currentLang = 'en';
+        let chatHistory = [];
+        let lastUserQuestion = '';
+        
+        // --- Google Sheet Configuration ---
+        const webAppUrl = 'https://script.google.com/macros/s/AKfycbwMl9wPAazHCod-6T8rbTOonJsMoee6S3K3m9TdlHj7-gB7OzFVaU8CkN0XVrN5-DTd/exec';
+
+        // --- Main Application Logic ---
+        document.addEventListener('DOMContentLoaded', () => {
+            setLanguage();
+            loadVoices();
+            fetchPartnerData();
+        });
+        
+        languageSelect.addEventListener('change', (e) => setLanguage(e.target.value));
+        loginForm.addEventListener('submit', (e) => { e.preventDefault(); handleLogin(); });
+        chatForm.addEventListener('submit', (e) => { e.preventDefault(); handleUserSubmit(); });
+        soundToggle.addEventListener('click', toggleSound);
+
+        chatContainer.addEventListener('click', (e) => {
+            const target = e.target.closest('.enhance-button');
+            if (!target) return;
+            
+            const action = target.dataset.action;
+            const messageBubble = target.closest('.chat-bubble-bot');
+            const question = messageBubble.dataset.question;
+            const answer = messageBubble.dataset.answer;
+
+            if (action && question && answer) {
+                target.parentElement.remove();
+                getEnhancedResponse(action, question, answer);
+            }
+        });
+
+        function handleUserSubmit() {
+            const userMessage = userInput.value.trim();
+            if (userMessage) {
+                lastUserQuestion = userMessage;
+                addUserMessage(userMessage);
+                getAiResponse(userMessage);
+                userInput.value = '';
+            }
+        }
+
+        function setLanguage(lang = 'en') {
+            currentLang = lang;
+            const t = translations[lang];
+            document.documentElement.lang = lang;
+            Object.keys(t).forEach(key => {
+                const element = document.getElementById(key.replace(/([A-Z])/g, "-$1").toLowerCase());
+                if (element) {
+                    if (element.placeholder) element.placeholder = t[key];
+                    else element.textContent = t[key];
+                }
+            });
+            loginButtonText.textContent = t.loginButton;
+            sendButton.textContent = t.sendButton;
+        }
+
+        function loadVoices() {
+            availableVoices = speechSynthesis.getVoices();
+            if (availableVoices.length === 0) {
+                speechSynthesis.onvoiceschanged = () => { availableVoices = speechSynthesis.getVoices(); };
+            }
+        }
+
+        function toggleSound() {
+            isSoundOn = !isSoundOn;
+            soundOnIcon.classList.toggle('hidden');
+            soundOffIcon.classList.toggle('hidden');
+            if (!isSoundOn) speechSynthesis.cancel();
+        }
+
+        async function fetchPartnerData() {
+            setLoginButtonLoading(true);
+            try {
+                const response = await fetch(`${webAppUrl}?sheet=Partner%20ID`);
+                if (!response.ok) throw new Error(translations[currentLang].fetchPartnerError);
+                const data = await response.json();
+                if (data.error) throw new Error(`Backend script error: ${data.error}`);
+                partnerList = data.map(row => ({ name: row[0], id: row[1] ? row[1].toString().trim() : '' }));
+            } catch (error) {
+                loginError.textContent = error.message;
+                loginError.classList.remove('hidden');
+            } finally {
+                setLoginButtonLoading(false);
+            }
+        }
+
+        function handleLogin() {
+            const enteredId = partnerIdInput.value.trim();
+            if (!enteredId) return;
+            const partner = partnerList.find(p => p.id === enteredId);
+            if (partner) {
+                currentPartnerName = partner.name;
+                currentPartnerId = partner.id;
+                loginScreen.classList.add('hidden');
+                chatScreen.style.display = 'flex';
+                startChatSession();
+            } else {
+                loginError.textContent = translations[currentLang].invalidId;
+                loginError.classList.remove('hidden');
+            }
+        }
+        
+        async function startChatSession() {
+            const firstName = currentPartnerName.split(' ')[0];
+            addBotMessage(translations[currentLang].welcomeGreeting(firstName));
+            setTimeout(() => {
+                addBotMessage(translations[currentLang].welcomeIntro);
+                presentCommonQuestions();
+            }, 800);
+            
+            try {
+                 const [knowledgeRes, handbookRes] = await Promise.all([
+                    fetch(`${webAppUrl}?sheet=Knowledge`),
+                    fetch(`${webAppUrl}?sheet=Partner%20Handbook`)
+                ]);
+
+                if (!knowledgeRes.ok || !handbookRes.ok) throw new Error(translations[currentLang].fetchKnowledgeError);
+
+                const knowledgeData = await knowledgeRes.json();
+                const handbookData = await handbookRes.json();
+
+                if (knowledgeData.error) throw new Error(knowledgeData.error);
+                if (handbookData.error) throw new Error(handbookData.error);
+
+                knowledgeBaseText = knowledgeData.map(row => `Topic: ${row[0] || 'Info'}\nContent: ${row[1] || 'N/A'}`).join('\n\n');
+                handbookText = handbookData.handbookContent || "";
+
+                console.log('Knowledge base and Handbook loaded.');
+            } catch(error) {
+                addBotMessage(error.message);
+            }
+        }
+
+        function presentCommonQuestions() {
+            const questions = translations[currentLang].commonQuestions;
+            const optionsContainer = document.createElement('div');
+            optionsContainer.className = 'flex flex-col items-start mb-4';
+            questions.forEach(question => {
+                const button = document.createElement('button');
+                button.textContent = question;
+                button.className = 'option-button';
+                button.addEventListener('click', () => {
+                    lastUserQuestion = question;
+                    addUserMessage(question);
+                    getAiResponse(question);
+                    optionsContainer.remove();
+                }, { once: true });
+                optionsContainer.appendChild(button);
+            });
+            chatContainer.appendChild(optionsContainer);
+            scrollToBottom();
+        }
+
+        async function getAiResponse(userMessage) {
+            const loadingBubble = addBotMessage('...', true);
+            await makeAiCall('askAI', { question: userMessage, context: knowledgeBaseText, handbookContext: handbookText, language: new Intl.DisplayNames([currentLang], { type: 'language' }).of(currentLang) }, loadingBubble);
+        }
+        
+        async function getEnhancedResponse(action, question, answer) {
+            const loadingBubble = addBotMessage('...', true);
+            await makeAiCall(action, { question, answer, handbookContext: handbookText, language: new Intl.DisplayNames([currentLang], { type: 'language' }).of(currentLang) }, loadingBubble, true);
+        }
+
+        async function makeAiCall(action, params, loadingBubble, isEnhancement = false) {
+            const postPayload = { 
+                action, 
+                ...params, 
+                partnerName: currentPartnerName,
+                partnerId: currentPartnerId
+            };
+            try {
+                const response = await fetch(webAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(postPayload),
+                    mode: 'cors' 
+                });
+                if (!response.ok) throw new Error(`Server error: ${response.status}`);
+                const result = await response.json();
+                if (result.error) throw new Error(`AI backend error: ${result.error}`);
+                const botResponse = result.answer || "Sorry, I couldn't find an answer.";
+                
+                let enhancementState = null;
+                if(action === 'askAI' && !result.isCourtesy){
+                    enhancementState = 'initial';
+                } else if(action === 'elaborate' && !result.isCourtesy){
+                    enhancementState = 'elaborated';
+                }
+
+                updateBotMessage(loadingBubble, botResponse, enhancementState);
+
+            } catch (error) {
+                console.error("Error getting AI response:", error);
+                updateBotMessage(loadingBubble, `${translations[currentLang].aiConnectionError} Error: ${error.message}`);
+            }
+        }
+        
+        function speak(text) {
+            if (isSoundOn && text) {
+                speechSynthesis.cancel();
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                const phoneRegex = /(\+44\s?\(0\)\s?\d{4}\s?\d{6}|\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4})/g;
+                let textToSpeak = text.replace(urlRegex, ' a link is available in the chat. ');
+                textToSpeak = textToSpeak.replace(phoneRegex, (match) => match.split('').join(' '));
+                
+                if (textToSpeak.trim()) {
+                    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                    const bestVoice = availableVoices.find(voice => voice.lang.startsWith(currentLang));
+                    if (bestVoice) utterance.voice = bestVoice;
+                    utterance.lang = currentLang;
+                    speechSynthesis.speak(utterance);
+                }
+            }
+        }
+        
+        function formatMessage(text) {
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const phoneRegex = /(\b0\d{4}\s?\d{6}\b)|(\b0\d{3}\s?\d{7}\b)|(\b\+44\s?\d{2,4}\s?\d{6,8}\b)/g;
+
+            let formattedText = text.replace(urlRegex, '<a href="$1" target="_blank" class="text-blue-600 underline hover:text-blue-800">$1</a>');
+            formattedText = formattedText.replace(phoneRegex, (match) => {
+                const telLink = match.replace(/[\s()-]/g, '');
+                return `<a href="tel:${telLink}" class="text-blue-600 underline hover:text-blue-800">${match}</a>`;
+            });
+            return formattedText.replace(/\n/g, '<br>');
+        }
+
+        function scrollToBottom() {
+            setTimeout(() => {
+                chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+            }, 100);
+        }
+
+        function setLoginButtonLoading(isLoading) {
+            loginButton.disabled = isLoading;
+            loginButtonText.classList.toggle('hidden', isLoading);
+            loginSpinner.classList.toggle('hidden', !isLoading);
+        }
+
+        function addUserMessage(message) {
+            chatHistory.push({ role: 'User', text: message });
+            const messageElement = document.createElement('div');
+            messageElement.className = 'flex justify-end mb-4';
+            messageElement.innerHTML = `<div class="chat-bubble-user rounded-lg py-3 px-4 max-w-lg"><p class="text-sm">${message}</p></div>`;
+            chatContainer.appendChild(messageElement);
+            scrollToBottom();
+        }
+
+        function addBotMessage(message, isLoading = false) {
+            if (!isLoading) chatHistory.push({ role: 'Bot', text: message });
+            const messageElement = document.createElement('div');
+            messageElement.className = 'flex justify-start mb-4';
+            let content = '';
+            if (isLoading) {
+                content = `<div class="loading-dots"><span>.</span><span>.</span><span>.</span></div>`;
+            } else {
+                content = formatMessage(message);
+                speak(message);
+            }
+            messageElement.innerHTML = `<div class="chat-bubble-bot rounded-lg py-3 px-4 max-w-lg">${content}</div>`;
+            chatContainer.appendChild(messageElement);
+            scrollToBottom();
+            return messageElement;
+        }
+
+        function updateBotMessage(element, newMessage, enhancementState = null) {
+            chatHistory.push({ role: 'Bot', text: newMessage });
+            
+            const bubble = element.querySelector('.chat-bubble-bot');
+            bubble.innerHTML = `<p class="text-sm">${formatMessage(newMessage)}</p>`;
+
+            speak(newMessage);
+            
+            if (enhancementState) {
+                bubble.dataset.question = lastUserQuestion;
+                bubble.dataset.answer = newMessage;
+
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'flex justify-start space-x-2 mt-3';
+                
+                if (enhancementState === 'initial') {
+                    const elaborateBtn = document.createElement('button');
+                    elaborateBtn.className = 'enhance-button';
+                    elaborateBtn.innerHTML = `<span>${translations[currentLang].elaborateLabel}</span><svg class="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="gemini-gradient-gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#fde047;" /><stop offset="100%" style="stop-color:#f59e0b;" /></linearGradient></defs><path fill="url(#gemini-gradient-gold)" d="M12 2.25L14.24 9.76L21.75 12L14.24 14.24L12 21.75L9.76 14.24L2.25 12L9.76 9.76L12 2.25Z"></path></svg>`;
+                    elaborateBtn.dataset.action = 'elaborate';
+                    buttonContainer.appendChild(elaborateBtn);
+                } else if (enhancementState === 'elaborated') {
+                    const simplifyBtn = document.createElement('button');
+                    simplifyBtn.className = 'enhance-button';
+                    simplifyBtn.innerHTML = `<span>${translations[currentLang].simplifyLabel}</span><svg class="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="gemini-gradient-gold-2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#fde047;" /><stop offset="100%" style="stop-color:#f59e0b;" /></linearGradient></defs><path fill="url(#gemini-gradient-gold-2)" d="M12 2.25L14.24 9.76L21.75 12L14.24 14.24L12 21.75L9.76 14.24L2.25 12L9.76 9.76L12 2.25Z"></path></svg>`;
+                    simplifyBtn.dataset.action = 'simplify';
+                    buttonContainer.appendChild(simplifyBtn);
+                }
+                
+                bubble.appendChild(buttonContainer);
+            }
+            scrollToBottom();
+        }
+    </script>
+</body>
+</html>
