@@ -66,7 +66,7 @@
             justify-content: center;
             gap: 0.5rem;
             border: none;
-            background: linear-gradient(45deg, #93c5fd, #3b82f6);
+            background: linear-gradient(to right, #3b82f6, #93c5fd);
             color: white;
         }
         .enhance-button:hover {
@@ -175,19 +175,19 @@
         // --- Translations ---
         const translations = {
             en: {
-                loginTitle: "Resource Hub", loginSubtitle: "Please enter your Partner ID to begin", partnerIdPlaceholder: "Your Partner ID", loginButton: "Login", chatTitle: "Resource Hub AI", chatSubtitle: "Your intelligent assistant", inputPlaceholder: "Type your question here...", sendButton: "Send", commonQuestions: ["How do I report my absence?", "How can I order uniform?", "I don't understand my payslip"], welcomeGreeting: (name) => `Hello, ${name}!`, welcomeIntro: "I'm the Resource Hub assistant. How can I help you today?", invalidId: "Invalid Partner ID. Please try again.", fetchPartnerError: "Failed to fetch partner list. Please ask the developer to re-authorize the Apps Script.", fetchKnowledgeError: "Sorry, I am having trouble accessing my knowledge right now. Please try again later.", aiConnectionError: "I'm having trouble connecting to my AI brain. Please ask the administrator to re-deploy the latest Apps Script and ensure the Cloud project has billing enabled.", elaborateLabel: "Elaborate", simplifyLabel: "Simplify", loadingKnowledge: "Loading knowledge..."
+                loginTitle: "Resource Hub", loginSubtitle: "Please enter your Partner ID to begin", partnerIdPlaceholder: "Your Partner ID", loginButton: "Login", chatTitle: "Resource Hub AI", chatSubtitle: "Your intelligent assistant", inputPlaceholder: "Type your question here...", sendButton: "Send", commonQuestions: ["How do I report my absence?", "How can I order uniform?", "I don't understand my payslip"], welcomeGreeting: (name) => `Hello, ${name}!`, welcomeIntro: "I'm the Resource Hub assistant. How can I help you today?", invalidId: "Invalid Partner ID. Please try again.", fetchPartnerError: "Failed to fetch partner list. Please ask the developer to re-authorize the Apps Script.", fetchKnowledgeError: "Sorry, I am having trouble accessing my knowledge right now. Please try again later.", aiConnectionError: "I'm having trouble connecting to my AI brain. Please ask the administrator to re-deploy the latest Apps Script and ensure the Cloud project has billing enabled.", elaborateLabel: "Elaborate", simplifyLabel: "Simplify"
             },
             es: {
-                loginTitle: "Centro de Recursos", loginSubtitle: "Por favor, ingrese su ID de socio para comenzar", partnerIdPlaceholder: "Su ID de Socio", loginButton: "Iniciar Sesión", chatTitle: "IA del Centro de Recursos", chatSubtitle: "Su asistente inteligente", inputPlaceholder: "Escriba su pregunta aquí...", sendButton: "Enviar", commonQuestions: ["¿Cómo reporto mi ausencia?", "¿Cómo puedo pedir el uniforme?", "No entiendo mi nómina"], welcomeGreeting: (name) => `¡Hola, ${name}!`, welcomeIntro: "Soy el asistente del Centro de Recursos. ¿Cómo puedo ayudarte hoy?", invalidId: "ID de socio no válido. Por favor, inténtelo de nuevo.", fetchPartnerError: "No se pudo cargar la lista de socios. Por favor, pida al desarrollador que vuelva a autorizar el Apps Script.", fetchKnowledgeError: "Lo siento, estoy teniendo problemas para acceder a mi conocimiento en este momento. Por favor, inténtelo de nuevo más tarde.", aiConnectionError: "Estoy teniendo problemas para conectarme a mi cerebro de IA. Por favor, pida al administrador que vuelva a implementar el último Apps Script y se asegure de que el proyecto de la nube tenga la facturación habilitada.", elaborateLabel: "Elaborar", simplifyLabel: "Simplificar", loadingKnowledge: "Cargando conocimiento..."
+                loginTitle: "Centro de Recursos", loginSubtitle: "Por favor, ingrese su ID de socio para comenzar", partnerIdPlaceholder: "Su ID de Socio", loginButton: "Iniciar Sesión", chatTitle: "IA del Centro de Recursos", chatSubtitle: "Su asistente inteligente", inputPlaceholder: "Escriba su pregunta aquí...", sendButton: "Enviar", commonQuestions: ["¿Cómo reporto mi ausencia?", "¿Cómo puedo pedir el uniforme?", "No entiendo mi nómina"], welcomeGreeting: (name) => `¡Hola, ${name}!`, welcomeIntro: "Soy el asistente del Centro de Recursos. ¿Cómo puedo ayudarte hoy?", invalidId: "ID de socio no válido. Por favor, inténtelo de nuevo.", fetchPartnerError: "No se pudo cargar la lista de socios. Por favor, pida al desarrollador que vuelva a autorizar el Apps Script.", fetchKnowledgeError: "Lo siento, estoy teniendo problemas para acceder a mi conocimiento en este momento. Por favor, inténtelo de nuevo más tarde.", aiConnectionError: "Estoy teniendo problemas para conectarme a mi cerebro de IA. Por favor, pida al administrador que vuelva a implementar el último Apps Script y se asegure de que el proyecto de la nube tenga la facturación habilitada.", elaborateLabel: "Elaborar", simplifyLabel: "Simplificar"
             },
             ro: {
-                loginTitle: "Centru de Resurse", loginSubtitle: "Vă rugăm să introduceți ID-ul de partener pentru a începe", partnerIdPlaceholder: "ID-ul dvs. de partener", loginButton: "Autentificare", chatTitle: "IA Centru de Resurse", chatSubtitle: "Asistentul dumneavoastră inteligent", inputPlaceholder: "Scrieți întrebarea dvs. aici...", sendButton: "Trimite", commonQuestions: ["Cum îmi raportez absența?", "Cum pot comanda uniforma?", "Nu înțeleg fluturașul de salariu"], welcomeGreeting: (name) => `Salut, ${name}!`, welcomeIntro: "Sunt asistentul Centrului de Resurse. Cum te pot ajuta astăzi?", invalidId: "ID de partener invalid. Vă rugăm să încercați din nou.", fetchPartnerError: "Nu s-a putut încărca lista de parteneri. Vă rugăm să solicitați dezvoltatorului să re-autorizeze Apps Script.", fetchKnowledgeError: "Îmi pare rău, întâmpin probleme la accesarea cunoștințelor mele în acest moment. Vă rugăm să încercați din nou mai târziu.", aiConnectionError: "Întâmpin probleme la conectarea la creierul meu AI. Vă rugăm să solicitați administratorului să re-implementeze cel mai recent Apps Script și să se asigure că proiectul cloud are facturarea activată.", elaborateLabel: "Elaborează", simplifyLabel: "Simplifică", loadingKnowledge: "Se încarcă cunoștințele..."
+                loginTitle: "Centru de Resurse", loginSubtitle: "Vă rugăm să introduceți ID-ul de partener pentru a începe", partnerIdPlaceholder: "ID-ul dvs. de partener", loginButton: "Autentificare", chatTitle: "IA Centru de Resurse", chatSubtitle: "Asistentul dumneavoastră inteligent", inputPlaceholder: "Scrieți întrebarea dvs. aici...", sendButton: "Trimite", commonQuestions: ["Cum îmi raportez absența?", "Cum pot comanda uniforma?", "Nu înțeleg fluturașul de salariu"], welcomeGreeting: (name) => `Salut, ${name}!`, welcomeIntro: "Sunt asistentul Centrului de Resurse. Cum te pot ajuta astăzi?", invalidId: "ID de partener invalid. Vă rugăm să încercați din nou.", fetchPartnerError: "Nu s-a putut încărca lista de parteneri. Vă rugăm să solicitați dezvoltatorului să re-autorizeze Apps Script.", fetchKnowledgeError: "Îmi pare rău, întâmpin probleme la accesarea cunoștințelor mele în acest moment. Vă rugăm să încercați din nou mai târziu.", aiConnectionError: "Întâmpin probleme la conectarea la creierul meu AI. Vă rugăm să solicitați administratorului să re-implementeze cel mai recent Apps Script și să se asigure că proiectul cloud are facturarea activată.", elaborateLabel: "Elaborează", simplifyLabel: "Simplifică"
             },
             pl: {
-                loginTitle: "Centrum Zasobów", loginSubtitle: "Proszę podać swój identyfikator partnera, aby rozpocząć", partnerIdPlaceholder: "Twój identyfikator partnera", loginButton: "Zaloguj się", chatTitle: "AI Centrum Zasobów", chatSubtitle: "Twój inteligentny asystent", inputPlaceholder: "Wpisz swoje pytanie tutaj...", sendButton: "Wyślij", commonQuestions: ["Jak zgłosić moją nieobecność?", "Jak mogę zamówić mundur?", "Nie rozumiem mojego paska wypłaty"], welcomeGreeting: (name) => `Cześć, ${name}!`, welcomeIntro: "Jestem asystentem Centrum Zasobów. W czym mogę dzisiaj pomóc?", invalidId: "Nieprawidłowy identyfikator partnera. Proszę spróbować ponownie.", fetchPartnerError: "Nie udało się pobrać listy partnerów. Proszę poprosić dewelopera o ponowne autoryzowanie skryptu Apps Script.", fetchKnowledgeError: "Przepraszam, mam problem z dostępem do mojej bazy wiedzy. Proszę spróbować ponownie później.", aiConnectionError: "Mam problem z połączeniem z moim mózgiem AI. Proszę poprosić administratora o ponowne wdrożenie najnowszego skryptu Apps Script i upewnienie się, że projekt w chmurze ma włączone fakturowanie.", elaborateLabel: "Rozwiń", simplifyLabel: "Uprość", loadingKnowledge: "Ładowanie wiedzy..."
+                loginTitle: "Centrum Zasobów", loginSubtitle: "Proszę podać swój identyfikator partnera, aby rozpocząć", partnerIdPlaceholder: "Twój identyfikator partnera", loginButton: "Zaloguj się", chatTitle: "AI Centrum Zasobów", chatSubtitle: "Twój inteligentny asystent", inputPlaceholder: "Wpisz swoje pytanie tutaj...", sendButton: "Wyślij", commonQuestions: ["Jak zgłosić moją nieobecność?", "Jak mogę zamówić mundur?", "Nie rozumiem mojego paska wypłaty"], welcomeGreeting: (name) => `Cześć, ${name}!`, welcomeIntro: "Jestem asystentem Centrum Zasobów. W czym mogę dzisiaj pomóc?", invalidId: "Nieprawidłowy identyfikator partnera. Proszę spróbować ponownie.", fetchPartnerError: "Nie udało się pobrać listy partnerów. Proszę poprosić dewelopera o ponowne autoryzowanie skryptu Apps Script.", fetchKnowledgeError: "Przepraszam, mam problem z dostępem do mojej bazy wiedzy. Proszę spróbować ponownie później.", aiConnectionError: "Mam problem z połączeniem z moim mózgiem AI. Proszę poprosić administratora o ponowne wdrożenie najnowszego skryptu Apps Script i upewnienie się, że projekt w chmurze ma włączone fakturowanie.", elaborateLabel: "Rozwiń", simplifyLabel: "Uprość"
             },
             ru: {
-                loginTitle: "Ресурсный центр", loginSubtitle: "Пожалуйста, введите свой ID партнера, чтобы начать", partnerIdPlaceholder: "Ваш ID партнера", loginButton: "Войти", chatTitle: "ИИ Ресурсного центра", chatSubtitle: "Ваш интеллектуальный помощник", inputPlaceholder: "Введите ваш вопрос здесь...", sendButton: "Отправить", commonQuestions: ["Как сообщить о своем отсутствии?", "Как я могу заказать униформу?", "Я не понимаю свой расчетный лист"], welcomeGreeting: (name) => `Здравствуйте, ${name}!`, welcomeIntro: "Я помощник Ресурсного центра. Чем я могу вам сегодня помочь?", invalidId: "Неверный ID партнера. Пожалуйста, попробуйте еще раз.", fetchPartnerError: "Не удалось получить список партнеров. Пожалуйста, попросите разработчика повторно авторизовать скрипт Apps Script.", fetchKnowledgeError: "Извините, у меня возникли проблемы с доступом к моей базе знаний. Пожалуйста, попробуйте позже.", aiConnectionError: "У меня проблемы с подключением к моему ИИ. Пожалуйста, попросите администратора повторно развернуть последний скрипт Apps Script и убедиться, что для облачного проекта включен биллинг.", elaborateLabel: "Подробнее", simplifyLabel: "Упростить", loadingKnowledge: "Загрузка знаний..."
+                loginTitle: "Ресурсный центр", loginSubtitle: "Пожалуйста, введите свой ID партнера, чтобы начать", partnerIdPlaceholder: "Ваш ID партнера", loginButton: "Войти", chatTitle: "ИИ Ресурсного центра", chatSubtitle: "Ваш интеллектуальный помощник", inputPlaceholder: "Введите ваш вопрос здесь...", sendButton: "Отправить", commonQuestions: ["Как сообщить о своем отсутствии?", "Как я могу заказать униформу?", "Я не понимаю свой расчетный лист"], welcomeGreeting: (name) => `Здравствуйте, ${name}!`, welcomeIntro: "Я помощник Ресурсного центра. Чем я могу вам сегодня помочь?", invalidId: "Неверный ID партнера. Пожалуйста, попробуйте еще раз.", fetchPartnerError: "Не удалось получить список партнеров. Пожалуйста, попросите разработчика повторно авторизовать скрипт Apps Script.", fetchKnowledgeError: "Извините, у меня возникли проблемы с доступом к моей базе знаний. Пожалуйста, попробуйте позже.", aiConnectionError: "У меня проблемы с подключением к моему ИИ. Пожалуйста, попросите администратора повторно развернуть последний скрипт Apps Script и убедиться, что для облачного проекта включен биллинг.", elaborateLabel: "Подробнее", simplifyLabel: "Упростить"
             }
         };
 
@@ -307,38 +307,32 @@
         async function startChatSession() {
             const firstName = currentPartnerName.split(' ')[0];
             addBotMessage(translations[currentLang].welcomeGreeting(firstName));
-            
-            // Set loading state for chat input
-            setChatInputLoading(true);
-            
-            setTimeout(async () => {
+            setTimeout(() => {
                 addBotMessage(translations[currentLang].welcomeIntro);
-                try {
-                     const [knowledgeRes, handbookRes] = await Promise.all([
-                        fetch(`${webAppUrl}?sheet=Knowledge`),
-                        fetch(`${webAppUrl}?sheet=Partner%20Handbook`)
-                    ]);
-
-                    if (!knowledgeRes.ok || !handbookRes.ok) throw new Error(translations[currentLang].fetchKnowledgeError);
-
-                    const knowledgeData = await knowledgeRes.json();
-                    const handbookData = await handbookRes.json();
-
-                    if (knowledgeData.error) throw new Error(knowledgeData.error);
-                    if (handbookData.error) throw new Error(handbookData.error);
-
-                    knowledgeBaseText = knowledgeData.map(row => `Topic: ${row[0] || 'Info'}\nContent: ${row[1] || 'N/A'}`).join('\n\n');
-                    handbookText = handbookData.handbookContent || "";
-
-                    console.log('Knowledge base and Handbook loaded.');
-                    presentCommonQuestions();
-                } catch(error) {
-                    addBotMessage(error.message);
-                } finally {
-                    // Restore chat input after loading
-                    setChatInputLoading(false);
-                }
+                presentCommonQuestions();
             }, 800);
+            
+            try {
+                 const [knowledgeRes, handbookRes] = await Promise.all([
+                    fetch(`${webAppUrl}?sheet=Knowledge`),
+                    fetch(`${webAppUrl}?sheet=Partner%20Handbook`)
+                ]);
+
+                if (!knowledgeRes.ok || !handbookRes.ok) throw new Error(translations[currentLang].fetchKnowledgeError);
+
+                const knowledgeData = await knowledgeRes.json();
+                const handbookData = await handbookRes.json();
+
+                if (knowledgeData.error) throw new Error(knowledgeData.error);
+                if (handbookData.error) throw new Error(handbookData.error);
+
+                knowledgeBaseText = knowledgeData.map(row => `Topic: ${row[0] || 'Info'}\nContent: ${row[1] || 'N/A'}`).join('\n\n');
+                handbookText = handbookData.handbookContent || "";
+
+                console.log('Knowledge base and Handbook loaded.');
+            } catch(error) {
+                addBotMessage(error.message);
+            }
         }
 
         function presentCommonQuestions() {
@@ -445,16 +439,6 @@
             loginButton.disabled = isLoading;
             loginButtonText.classList.toggle('hidden', isLoading);
             loginSpinner.classList.toggle('hidden', !isLoading);
-        }
-
-        function setChatInputLoading(isLoading) {
-            userInput.disabled = isLoading;
-            sendButton.disabled = isLoading;
-            if (isLoading) {
-                userInput.placeholder = translations[currentLang].loadingKnowledge;
-            } else {
-                userInput.placeholder = translations[currentLang].inputPlaceholder;
-            }
         }
 
         function addUserMessage(message) {
