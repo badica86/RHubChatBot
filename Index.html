@@ -424,7 +424,7 @@
         
         function formatMessage(text) {
             const urlRegex = /(https?:\/\/[^\s]+)/g;
-            const phoneRegex = /(\b0\d{3,4}\s?\d{3}\s?\d{3,4}\b)|(\b\+44\s?\d{2,4}\s?\d{6,8}\b)/g;
+            const phoneRegex = /(\b0\d{3,4}\s?\d{3,4}\s?\d{2,4}\b)|(\b\+44\s?\d{2,4}\s?\d{6,8}\b)/g;
 
             let formattedText = text.replace(urlRegex, '<a href="$1" target="_blank" class="text-blue-600 underline hover:text-blue-800">$1</a>');
             formattedText = formattedText.replace(phoneRegex, (match) => {
