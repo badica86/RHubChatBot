@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resource Hub AI Assistant</title>
+    <title>Resource Hub AI Chatbot</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -483,7 +483,7 @@
             scrollToBottom();
         }
 
-        function addBotMessage(message, isLoading = false, addEnhanceButtons = false) {
+        function addBotMessage(message, isLoading = false) {
             if (!isLoading) chatHistory.push({ role: 'Bot', text: message });
             const messageElement = document.createElement('div');
             messageElement.className = 'flex justify-start mb-4';
@@ -496,24 +496,6 @@
             }
             messageElement.innerHTML = `<div class="chat-bubble-bot rounded-lg py-3 px-4 max-w-lg">${content}</div>`;
             chatContainer.appendChild(messageElement);
-            
-            if (addEnhanceButtons) {
-                const bubble = messageElement.querySelector('.chat-bubble-bot');
-                bubble.dataset.question = lastUserQuestion;
-                bubble.dataset.answer = message;
-
-                const buttonContainer = document.createElement('div');
-                buttonContainer.className = 'flex justify-start space-x-2 mt-3';
-                
-                const elaborateBtn = document.createElement('button');
-                elaborateBtn.className = 'enhance-button';
-                elaborateBtn.innerHTML = `<span>${translations[currentLang].elaborateLabel}</span><svg class="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="gemini-gradient-gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#fde047;" /><stop offset="100%" style="stop-color:#f59e0b;" /></linearGradient></defs><path fill="url(#gemini-gradient-gold)" d="M12 2.25L14.24 9.76L21.75 12L14.24 14.24L12 21.75L9.76 14.24L2.25 12L9.76 9.76L12 2.25Z"></path></svg>`;
-                elaborateBtn.dataset.action = 'elaborate';
-                buttonContainer.appendChild(elaborateBtn);
-                
-                bubble.appendChild(buttonContainer);
-            }
-
             scrollToBottom();
             return messageElement;
         }
