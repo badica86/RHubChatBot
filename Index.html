@@ -185,7 +185,7 @@
                 loginTitle: "Centru de Resurse", loginSubtitle: "Vă rugăm să introduceți ID-ul de partener pentru a începe", partnerIdPlaceholder: "ID-ul dvs. de partener", loginButton: "Autentificare", chatTitle: "IA Centru de Resurse", chatSubtitle: "Asistentul dumneavoastră inteligent", inputPlaceholder: "Scrieți întrebarea dvs. aici...", sendButton: "Trimite", commonQuestions: ["Cum îmi raportez absența?", "Cum pot comanda uniforma?", "Nu înțeleg fluturașul de salariu"], welcomeGreeting: (name) => `Salut, ${name}!`, welcomeIntro: "Sunt asistentul Centrului de Resurse. Cum te pot ajuta astăzi?", invalidId: "ID de partener invalid. Vă rugăm să încercați din nou.", fetchPartnerError: "Nu s-a putut încărca lista de parteneri. Vă rugăm să solicitați dezvoltatorului să re-autorizeze Apps Script.", fetchKnowledgeError: "Îmi pare rău, întâmpin probleme la accesarea cunoștințelor mele în acest moment. Vă rugăm să încercați din nou mai târziu.", aiConnectionError: "Întâmpin probleme la conectarea la creierul meu AI. Vă rugăm să solicitați administratorului să re-implementeze cel mai recent Apps Script și să se asigure că proiectul cloud are facturarea activată.", elaborateLabel: "Elaborează", simplifyLabel: "Simplifică", loadingKnowledge: "Se încarcă cunoștințele..."
             },
             pl: {
-                loginTitle: "Centrum Zasobów", loginSubtitle: "Proszę podać swój identyfikator partnera, aby rozpocząć", partnerIdPlaceholder: "Twój identyfikator partnera", loginButton: "Zaloguj się", chatTitle: "AI Centrum Zasobów", chatSubtitle: "Twój inteligentny asystent", inputPlaceholder: "Wpisz svoje pytanie tutaj...", sendButton: "Wyślij", commonQuestions: ["Jak zgłosić moją nieobecność?", "Jak mogę zamówić mundur?", "Nie rozumiem mojego paska wypłaty"], welcomeGreeting: (name) => `Cześć, ${name}!`, welcomeIntro: "Jestem asystentem Centrum Zasobów. W czym mogę dzisiaj pomóc?", invalidId: "Nieprawidłowy identyfikator partnera. Proszę spróbować ponownie.", fetchPartnerError: "Nie udało się pobrać listy partnerów. Proszę poprosić dewelopera o ponowne autoryzowanie skryptu Apps Script.", fetchKnowledgeError: "Przepraszam, mam problem z dostępem do mojej bazy wiedzy. Proszę spróbować ponownie później.", aiConnectionError: "Mam problem z połączeniem z moim mózgiem AI. Proszę poprosić administratora o ponowne wdrożenie najnowszego skryptu Apps Script i upewnienie się, że projekt w chmurze ma włączone fakturowanie.", elaborateLabel: "Rozwiń", simplifyLabel: "Uprość", loadingKnowledge: "Ładowanie wiedzy..."
+                loginTitle: "Centrum Zasobów", loginSubtitle: "Proszę podać swój identyfikator partnera, aby rozpocząć", partnerIdPlaceholder: "Twój identyfikator partnera", loginButton: "Zaloguj się", chatTitle: "AI Centrum Zasobów", chatSubtitle: "Twój inteligentny asystent", inputPlaceholder: "Wpisz swoje pytanie tutaj...", sendButton: "Wyślij", commonQuestions: ["Jak zgłosić moją nieobecność?", "Jak mogę zamówić mundur?", "Nie rozumiem mojego paska wypłaty"], welcomeGreeting: (name) => `Cześć, ${name}!`, welcomeIntro: "Jestem asystentem Centrum Zasobów. W czym mogę dzisiaj pomóc?", invalidId: "Nieprawidłowy identyfikator partnera. Proszę spróbować ponownie.", fetchPartnerError: "Nie udało się pobrać listy partnerów. Proszę poprosić dewelopera o ponowne autoryzowanie skryptu Apps Script.", fetchKnowledgeError: "Przepraszam, mam problem z dostępem do mojej bazy wiedzy. Proszę spróbować ponownie później.", aiConnectionError: "Mam problem z połączeniem z moim mózgiem AI. Proszę poprosić administratora o ponowne wdrożenie najnowszego skryptu Apps Script i upewnienie się, że projekt w chmurze ma włączone fakturowanie.", elaborateLabel: "Rozwiń", simplifyLabel: "Uprość", loadingKnowledge: "Ładowanie wiedzy..."
             },
             ru: {
                 loginTitle: "Ресурсный центр", loginSubtitle: "Пожалуйста, введите свой ID партнера, чтобы начать", partnerIdPlaceholder: "Ваш ID партнера", loginButton: "Войти", chatTitle: "ИИ Ресурсного центра", chatSubtitle: "Ваш интеллектуальный помощник", inputPlaceholder: "Введите ваш вопрос здесь...", sendButton: "Отправить", commonQuestions: ["Как сообщить о своем отсутствии?", "Как я могу заказать униформу?", "Я не понимаю свой расчетный лист"], welcomeGreeting: (name) => `Здравствуйте, ${name}!`, welcomeIntro: "Я помощник Ресурсного центра. Чем я могу вам сегодня помочь?", invalidId: "Неверный ID партнера. Пожалуйста, попробуйте еще раз.", fetchPartnerError: "Не удалось получить список партнеров. Пожалуйста, попросите разработчика повторно авторизовать скрипт Apps Script.", fetchKnowledgeError: "Извините, у меня возникли проблемы с доступом к моей базе знаний. Пожалуйста, попробуйте позже.", aiConnectionError: "У меня проблемы с подключением к моему ИИ. Пожалуйста, попросите администратора повторно развернуть последний скрипт Apps Script и убедиться, что для облачного проекта включен биллинг.", elaborateLabel: "Подробнее", simplifyLabel: "Упростить", loadingKnowledge: "Загрузка знаний..."
@@ -235,17 +235,20 @@
             }
         });
 
-        function handleUserSubmit() {
-            const userMessage = userInput.value.trim();
+        function handleUserSubmit(message = null) {
+            const userMessage = message || userInput.value.trim();
             if (userMessage) {
                 lastUserQuestion = userMessage;
-                addUserMessage(userMessage);
+                if (!message) { // Only add to chat if it wasn't from a button click
+                    addUserMessage(userMessage);
+                }
                 
-                // FIXED: Check cache first for instant answer
-                const cachedAnswer = learnedAnswersCache.get(userMessage.toLowerCase());
+                const sanitizedMessage = userMessage.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()?]/g, "").trim();
+                const cachedAnswer = learnedAnswersCache.get(sanitizedMessage);
+
                 if (cachedAnswer) {
                     console.log("Serving from cache.");
-                    addBotMessage(cachedAnswer, false, true); // Add enhance buttons to cached answers
+                    addBotMessage(cachedAnswer, false, true);
                 } else {
                     getAiResponse(userMessage);
                 }
@@ -341,7 +344,7 @@
 
                     knowledgeBaseText = knowledgeData.map(row => `Topic: ${row[0] || 'Info'}\nContent: ${row[1] || 'N/A'}`).join('\n\n');
                     handbookText = handbookData.handbookContent || "";
-                    learnedAnswersCache = new Map(learnedData.slice(1).map(row => [row[0].toLowerCase().trim(), row[1]]));
+                    learnedAnswersCache = new Map(learnedData.slice(1).map(row => [row[0].toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()?]/g, "").trim(), row[1]]));
 
                     console.log('Knowledge base, Handbook, and Learned Answers loaded.');
                     presentCommonQuestions();
@@ -362,9 +365,8 @@
                 button.textContent = question;
                 button.className = 'option-button';
                 button.addEventListener('click', () => {
-                    lastUserQuestion = question;
                     addUserMessage(question);
-                    getAiResponse(question);
+                    handleUserSubmit(question); // Use handleUserSubmit to check cache
                     optionsContainer.remove();
                 }, { once: true });
                 optionsContainer.appendChild(button);
@@ -509,7 +511,7 @@
             }
             const bubble = document.createElement('div');
             bubble.className = 'chat-bubble-bot rounded-lg py-3 px-4 max-w-lg';
-            bubble.innerHTML = content;
+            bubble.innerHTML = `<p class="text-sm">${content}</p>`;
             
             if (addEnhanceButtons) {
                 bubble.dataset.question = lastUserQuestion;
