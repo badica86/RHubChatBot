@@ -185,7 +185,7 @@
                 loginTitle: "Centru de Resurse", loginSubtitle: "Vă rugăm să introduceți ID-ul de partener pentru a începe", partnerIdPlaceholder: "ID-ul dvs. de partener", loginButton: "Autentificare", chatTitle: "IA Centru de Resurse", chatSubtitle: "Asistentul dumneavoastră inteligent", inputPlaceholder: "Scrieți întrebarea dvs. aici...", sendButton: "Trimite", commonQuestions: ["Cum îmi raportez absența?", "Cum pot comanda uniforma?", "Nu înțeleg fluturașul de salariu"], welcomeGreeting: (name) => `Salut, ${name}!`, welcomeIntro: "Sunt asistentul Centrului de Resurse. Cum te pot ajuta astăzi?", invalidId: "ID de partener invalid. Vă rugăm să încercați din nou.", fetchPartnerError: "Nu s-a putut încărca lista de parteneri. Vă rugăm să solicitați dezvoltatorului să re-autorizeze Apps Script.", fetchKnowledgeError: "Îmi pare rău, întâmpin probleme la accesarea cunoștințelor mele în acest moment. Vă rugăm să încercați din nou mai târziu.", aiConnectionError: "Întâmpin probleme la conectarea la creierul meu AI. Vă rugăm să solicitați administratorului să re-implementeze cel mai recent Apps Script și să se asigure că proiectul cloud are facturarea activată.", elaborateLabel: "Elaborează", simplifyLabel: "Simplifică", loadingKnowledge: "Se încarcă cunoștințele..."
             },
             pl: {
-                loginTitle: "Centrum Zasobów", loginSubtitle: "Proszę podać swój identyfikator partnera, aby rozpocząć", partnerIdPlaceholder: "Twój identyfikator partnera", loginButton: "Zaloguj się", chatTitle: "AI Centrum Zasobów", chatSubtitle: "Twój inteligentny asystent", inputPlaceholder: "Wpisz swoje pytanie tutaj...", sendButton: "Wyślij", commonQuestions: ["Jak zgłosić moją nieobecność?", "Jak mogę zamówić mundur?", "Nie rozumiem mojego paska wypłaty"], welcomeGreeting: (name) => `Cześć, ${name}!`, welcomeIntro: "Jestem asystentem Centrum Zasobów. W czym mogę dzisiaj pomóc?", invalidId: "Nieprawidłowy identyfikator partnera. Proszę spróbować ponownie.", fetchPartnerError: "Nie udało się pobrać listy partnerów. Proszę poprosić dewelopera o ponowne autoryzowanie skryptu Apps Script.", fetchKnowledgeError: "Przepraszam, mam problem z dostępem do mojej bazy wiedzy. Proszę spróbować ponownie później.", aiConnectionError: "Mam problem z połączeniem z moim mózgiem AI. Proszę poprosić administratora o ponowne wdrożenie najnowszego skryptu Apps Script i upewnienie się, że projekt w chmurze ma włączone fakturowanie.", elaborateLabel: "Rozwiń", simplifyLabel: "Uprość", loadingKnowledge: "Ładowanie wiedzy..."
+                loginTitle: "Centrum Zasobów", loginSubtitle: "Proszę podać swój identyfikator partnera, aby rozpocząć", partnerIdPlaceholder: "Twój identyfikator partnera", loginButton: "Zaloguj się", chatTitle: "AI Centrum Zasobów", chatSubtitle: "Twój inteligentny asystent", inputPlaceholder: "Wpisz svoje pytanie tutaj...", sendButton: "Wyślij", commonQuestions: ["Jak zgłosić moją nieobecność?", "Jak mogę zamówić mundur?", "Nie rozumiem mojego paska wypłaty"], welcomeGreeting: (name) => `Cześć, ${name}!`, welcomeIntro: "Jestem asystentem Centrum Zasobów. W czym mogę dzisiaj pomóc?", invalidId: "Nieprawidłowy identyfikator partnera. Proszę spróbować ponownie.", fetchPartnerError: "Nie udało się pobrać listy partnerów. Proszę poprosić dewelopera o ponowne autoryzowanie skryptu Apps Script.", fetchKnowledgeError: "Przepraszam, mam problem z dostępem do mojej bazy wiedzy. Proszę spróbować ponownie później.", aiConnectionError: "Mam problem z połączeniem z moim mózgiem AI. Proszę poprosić administratora o ponowne wdrożenie najnowszego skryptu Apps Script i upewnienie się, że projekt w chmurze ma włączone fakturowanie.", elaborateLabel: "Rozwiń", simplifyLabel: "Uprość", loadingKnowledge: "Ładowanie wiedzy..."
             },
             ru: {
                 loginTitle: "Ресурсный центр", loginSubtitle: "Пожалуйста, введите свой ID партнера, чтобы начать", partnerIdPlaceholder: "Ваш ID партнера", loginButton: "Войти", chatTitle: "ИИ Ресурсного центра", chatSubtitle: "Ваш интеллектуальный помощник", inputPlaceholder: "Введите ваш вопрос здесь...", sendButton: "Отправить", commonQuestions: ["Как сообщить о своем отсутствии?", "Как я могу заказать униформу?", "Я не понимаю свой расчетный лист"], welcomeGreeting: (name) => `Здравствуйте, ${name}!`, welcomeIntro: "Я помощник Ресурсного центра. Чем я могу вам сегодня помочь?", invalidId: "Неверный ID партнера. Пожалуйста, попробуйте еще раз.", fetchPartnerError: "Не удалось получить список партнеров. Пожалуйста, попросите разработчика повторно авторизовать скрипт Apps Script.", fetchKnowledgeError: "Извините, у меня возникли проблемы с доступом к моей базе знаний. Пожалуйста, попробуйте позже.", aiConnectionError: "У меня проблемы с подключением к моему ИИ. Пожалуйста, попросите администратора повторно развернуть последний скрипт Apps Script и убедиться, что для облачного проекта включен биллинг.", elaborateLabel: "Подробнее", simplifyLabel: "Упростить", loadingKnowledge: "Загрузка знаний..."
@@ -241,9 +241,11 @@
                 lastUserQuestion = userMessage;
                 addUserMessage(userMessage);
                 
+                // FIXED: Check cache first for instant answer
                 const cachedAnswer = learnedAnswersCache.get(userMessage.toLowerCase());
                 if (cachedAnswer) {
-                    addBotMessage(cachedAnswer, false, true);
+                    console.log("Serving from cache.");
+                    addBotMessage(cachedAnswer, false, true); // Add enhance buttons to cached answers
                 } else {
                     getAiResponse(userMessage);
                 }
@@ -397,7 +399,12 @@
                 });
                 if (!response.ok) throw new Error(`Server error: ${response.status}`);
                 const result = await response.json();
-                if (result.error) throw new Error(`AI backend error: ${result.error}`);
+                if (result.error) {
+                    if (result.details && result.details.error && result.details.error.status === 'UNAVAILABLE') {
+                        throw new Error('SERVER_BUSY');
+                    }
+                    throw new Error(`AI backend error: ${result.error}`);
+                }
                 const botResponse = result.answer || "Sorry, I couldn't find an answer.";
                 
                 let enhancementState = null;
@@ -411,7 +418,13 @@
 
             } catch (error) {
                 console.error("Error getting AI response:", error);
-                updateBotMessage(loadingBubble, `${translations[currentLang].aiConnectionError} Error: ${error.message}`);
+                let userFriendlyError = translations[currentLang].aiConnectionError;
+                if (error.message === 'SERVER_BUSY') {
+                    userFriendlyError = translations[currentLang].serverBusyError;
+                }
+                
+                updateBotMessage(loadingBubble, userFriendlyError);
+                
                 const errorPayload = { action: 'logError', partnerName: currentPartnerName, errorMessage: error.message };
                 await fetch(webAppUrl, {
                     method: 'POST',
@@ -483,7 +496,7 @@
             scrollToBottom();
         }
 
-        function addBotMessage(message, isLoading = false) {
+        function addBotMessage(message, isLoading = false, addEnhanceButtons = false) {
             if (!isLoading) chatHistory.push({ role: 'Bot', text: message });
             const messageElement = document.createElement('div');
             messageElement.className = 'flex justify-start mb-4';
@@ -494,7 +507,24 @@
                 content = formatMessage(message);
                 speak(message);
             }
-            messageElement.innerHTML = `<div class="chat-bubble-bot rounded-lg py-3 px-4 max-w-lg">${content}</div>`;
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble-bot rounded-lg py-3 px-4 max-w-lg';
+            bubble.innerHTML = content;
+            
+            if (addEnhanceButtons) {
+                bubble.dataset.question = lastUserQuestion;
+                bubble.dataset.answer = message;
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'flex justify-start space-x-2 mt-3';
+                const elaborateBtn = document.createElement('button');
+                elaborateBtn.className = 'enhance-button';
+                elaborateBtn.innerHTML = `<span>${translations[currentLang].elaborateLabel}</span><svg class="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="gemini-gradient-gold" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#fde047;" /><stop offset="100%" style="stop-color:#f59e0b;" /></linearGradient></defs><path fill="url(#gemini-gradient-gold)" d="M12 2.25L14.24 9.76L21.75 12L14.24 14.24L12 21.75L9.76 14.24L2.25 12L9.76 9.76L12 2.25Z"></path></svg>`;
+                elaborateBtn.dataset.action = 'elaborate';
+                buttonContainer.appendChild(elaborateBtn);
+                bubble.appendChild(buttonContainer);
+            }
+
+            messageElement.appendChild(bubble);
             chatContainer.appendChild(messageElement);
             scrollToBottom();
             return messageElement;
@@ -502,14 +532,8 @@
 
         function updateBotMessage(element, newMessage, enhancementState = null) {
             chatHistory.push({ role: 'Bot', text: newMessage });
-            const p = document.createElement('p');
-            p.className = 'text-sm';
-            p.innerHTML = formatMessage(newMessage);
-            
             const bubble = element.querySelector('.chat-bubble-bot');
-            bubble.innerHTML = ''; // Clear loading dots
-            bubble.appendChild(p);
-
+            bubble.innerHTML = `<p class="text-sm">${formatMessage(newMessage)}</p>`;
             speak(newMessage);
             
             if (enhancementState) {
