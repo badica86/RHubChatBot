@@ -3,386 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warehouse Break Kiosk</title>
+    <title>Breaks Report</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .lds-ring {
-          display: inline-block;
-          position: relative;
-          width: 20px;
-          height: 20px;
-        }
-        .lds-ring div {
-          box-sizing: border-box;
-          display: block;
-          position: absolute;
-          width: 16px;
-          height: 16px;
-          margin: 2px;
-          border: 2px solid #fff;
-          border-radius: 50%;
-          animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-          border-color: #fff transparent transparent transparent;
-        }
-        .lds-ring div:nth-child(1) {
-          animation-delay: -0.45s;
-        }
-        .lds-ring div:nth-child(2) {
-          animation-delay: -0.3s;
-        }
-        .lds-ring div:nth-child(3) {
-          animation-delay: -0.15s;
-        }
-        @keyframes lds-ring {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
+        body { font-family: 'Inter', sans-serif; }
+        .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #3498db; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .qr-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 0.5rem;
+            backdrop-filter: blur(2px);
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen">
+<body class="flex items-start md:items-center justify-center min-h-screen p-4" style="background-color: #003B25;">
 
-    <div id="app" class="w-full max-w-4xl mx-auto p-4">
-        <!-- Main container for views -->
+    <div id="app-container" class="w-full max-w-sm mx-auto bg-white rounded-2xl shadow-xl p-8 mt-16 md:mt-0">
+        <!-- Views will be rendered here -->
     </div>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300">
-        <p id="toast-message"></p>
-    </div>
+    <script>
+        // --- CONFIGURATION ---
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxtHwLLd4RHT23EZjmKtcwuyDpDqSCwTZmcMHlasIzV9qHsCx30rmcqAtYDKw5nmft5g/exec';
 
-    <script type="module">
-        // --- DATA SIMULATION ---
-        // In a real application, this would be a Firestore database.
-        const mockDatabase = {
-            managers: [
-                { id: 1, name: 'John Doe' },
-                { id: 2, name: 'Jane Smith' },
-                { id: 3, name: 'Mike Johnson' },
-                { id: 4, name: 'Sarah Williams' },
-            ],
-            breaks: [], // { managerId, managerName, startTime, endTime, duration }
-            activeToken: null
-        };
+        const appContainer = document.getElementById('app-container');
 
-        // --- STATE MANAGEMENT ---
-        const state = {
-            currentView: 'kiosk', // kiosk, form, admin
-            currentManagerId: null,
-            isLoading: false,
-        };
+        // --- CORE APP LOGIC ---
 
-        const appContainer = document.getElementById('app');
-        const toast = document.getElementById('toast');
-        const toastMessage = document.getElementById('toast-message');
-
-        // --- CORE FUNCTIONS ---
         function generateToken() {
-            return Math.random().toString(36).substring(2, 10);
+            return Math.random().toString(36).substring(2, 15);
         }
 
-        function showToast(message, isError = false) {
-            toastMessage.textContent = message;
-            toast.className = `fixed top-5 right-5 text-white py-2 px-4 rounded-lg shadow-lg transform transition-transform duration-300 ${isError ? 'bg-red-500' : 'bg-green-500'} translate-x-0`;
-            setTimeout(() => {
-                toast.style.transform = 'translateX(120%)';
-            }, 3000);
-        }
-
-        // --- ROUTING / VIEW RENDERING ---
-        function navigate(view, params = {}) {
-            state.currentView = view;
-            const url = new URL(window.location);
-            url.searchParams.set('view', view);
-            for (const key in params) {
-                url.searchParams.set(key, params[key]);
-            }
-            // We use replaceState to avoid cluttering browser history for this simple SPA
-            window.history.replaceState({}, '', url);
-            render();
-        }
-
-        function render() {
-            appContainer.innerHTML = ''; // Clear previous view
-            switch (state.currentView) {
-                case 'kiosk':
-                    appContainer.innerHTML = KioskView();
-                    initKiosk();
-                    break;
-                case 'form':
-                    appContainer.innerHTML = FormView();
-                    initForm();
-                    break;
-                case 'admin':
-                    appContainer.innerHTML = AdminView();
-                    initAdmin();
-                    break;
-                default:
-                    appContainer.innerHTML = KioskView();
-                    initKiosk();
+        async function setServerToken(token) {
+            try {
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?token=${token}`);
+                if (!response.ok) return { success: false };
+                const result = await response.json();
+                return result.status === 'success' ? { success: true } : { success: false };
+            } catch (error) {
+                return { success: false };
             }
         }
 
-        // --- VIEWS (HTML TEMPLATES) ---
-
-        function KioskView() {
-            return `
-                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-10 text-center">
-                    <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Break Sign-In Kiosk</h1>
-                    <p class="mt-2 text-gray-600">Scan the QR code with your phone to start or end your break.</p>
-                    <div class="flex justify-center my-6">
-                        <div id="qrcode-container" class="p-4 bg-white rounded-lg border border-gray-200 shadow-inner">
-                            <div id="qrcode"></div>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-500">This code refreshes automatically.</p>
-                    <div id="timer" class="mt-4 font-mono bg-gray-100 rounded-md px-3 py-2 inline-block"></div>
-                    <div class="mt-6">
-                        <button onclick="window.navigateTo('admin')" class="text-indigo-600 hover:text-indigo-800 font-medium">View Admin Dashboard</button>
-                    </div>
-                </div>
-            `;
-        }
-
-        function FormView() {
-            return `
-                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-10 max-w-md mx-auto">
-                    <h1 class="text-2xl font-bold text-center mb-6">Break Management</h1>
-                    <div id="form-content">
-                        <!-- Content will be loaded here -->
-                    </div>
-                </div>
-            `;
-        }
-        
-        function AdminView() {
-            const onBreak = mockDatabase.breaks.filter(b => !b.endTime);
-            const completed = mockDatabase.breaks.filter(b => b.endTime).reverse();
-
-            return `
-                <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-                    <div class="flex justify-between items-center mb-6">
-                        <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                        <button onclick="window.navigateTo('kiosk')" class="text-indigo-600 hover:text-indigo-800 font-medium">&larr; Back to Kiosk</button>
-                    </div>
-
-                    <!-- Currently on Break -->
-                    <div class="mb-8">
-                        <h2 class="text-xl font-semibold mb-3">Currently on Break (${onBreak.length})</h2>
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            ${onBreak.length > 0 ? onBreak.map(b => `
-                                <div class="flex justify-between items-center p-2">
-                                    <span>${b.managerName}</span>
-                                    <span class="font-mono text-sm">${new Date(b.startTime).toLocaleTimeString()}</span>
-                                </div>
-                            `).join('') : '<p class="text-gray-500">No one is currently on break.</p>'}
-                        </div>
-                    </div>
-
-                    <!-- Break History -->
-                    <div>
-                        <h2 class="text-xl font-semibold mb-3">Break History</h2>
-                        <div class="bg-gray-50 rounded-lg">
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full text-left">
-                                    <thead class="border-b">
-                                        <tr>
-                                            <th class="p-4 font-semibold">Manager</th>
-                                            <th class="p-4 font-semibold">Start Time</th>
-                                            <th class="p-4 font-semibold">End Time</th>
-                                            <th class="p-4 font-semibold">Duration</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${completed.length > 0 ? completed.map(b => `
-                                            <tr class="border-b last:border-none">
-                                                <td class="p-4">${b.managerName}</td>
-                                                <td class="p-4 font-mono text-sm">${new Date(b.startTime).toLocaleTimeString()}</td>
-                                                <td class="p-4 font-mono text-sm">${new Date(b.endTime).toLocaleTimeString()}</td>
-                                                <td class="p-4 font-mono text-sm">${b.duration}</td>
-                                            </tr>
-                                        `).join('') : '<tr><td colspan="4" class="p-4 text-center text-gray-500">No completed breaks yet.</td></tr>'}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-
-        // --- LOGIC INITIALIZERS ---
-
-        function initKiosk() {
-            const qrcodeContainer = document.getElementById('qrcode');
-            const timerDisplay = document.getElementById('timer');
-            let countdown = 15;
-            let qrCodeInstance = null;
-
-            function updateQRCode() {
-                const token = generateToken();
-                mockDatabase.activeToken = token;
-                
-                const url = `${window.location.origin}${window.location.pathname}?view=form&token=${token}`;
-
-                if (qrCodeInstance) {
-                    qrCodeInstance.makeCode(url);
-                } else {
-                    qrCodeInstance = new QRCode(qrcodeContainer, {
-                        text: url,
-                        width: 200,
-                        height: 200,
-                        colorDark: "#000000",
-                        colorLight: "#ffffff",
-                        correctLevel: QRCode.CorrectLevel.H
-                    });
-                }
-            }
-
-            function startTimer() {
-                countdown = 15;
-                updateQRCode();
-                const interval = setInterval(() => {
-                    if (state.currentView !== 'kiosk') {
-                        clearInterval(interval);
-                        return;
-                    }
-                    countdown--;
-                    timerDisplay.textContent = `Refreshes in ${countdown}s`;
-                    if (countdown <= 0) {
-                        countdown = 15;
-                        updateQRCode();
-                    }
-                }, 1000);
-            }
-            startTimer();
-        }
-
-        function initForm() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
-            const formContent = document.getElementById('form-content');
-
-            if (token !== mockDatabase.activeToken) {
-                formContent.innerHTML = `
-                    <p class="text-center text-red-600 font-medium">This QR code is invalid or has expired.</p>
-                    <p class="text-center mt-2 text-gray-500">Please re-scan the code from the kiosk screen.</p>
-                `;
-                mockDatabase.activeToken = null; // Invalidate token after one failed attempt
+        async function submitBreak(action, token) {
+            const partnerNumberInput = document.getElementById('partner-number');
+            const partnerNumber = partnerNumberInput.value;
+            if (!partnerNumber) {
+                renderForm(token, 'Please enter a Partner Number.');
                 return;
             }
-            
-            // Token is valid, consume it
-            mockDatabase.activeToken = null;
-
-            formContent.innerHTML = `
-                <div class="mb-4">
-                    <label for="manager-select" class="block text-sm font-medium text-gray-700 mb-1">Select your name:</label>
-                    <select id="manager-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="">-- Please Select --</option>
-                        ${mockDatabase.managers.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}
-                    </select>
-                </div>
-                <div id="action-buttons" class="mt-6 text-center">
-                    <!-- Buttons will be rendered here based on selection -->
-                </div>
-            `;
-
-            const select = document.getElementById('manager-select');
-            select.addEventListener('change', (e) => {
-                state.currentManagerId = e.target.value ? parseInt(e.target.value) : null;
-                renderActionButtons();
-            });
-        }
-        
-        function renderActionButtons() {
-            const buttonsContainer = document.getElementById('action-buttons');
-            if (!state.currentManagerId) {
-                buttonsContainer.innerHTML = '';
-                return;
-            }
-
-            const activeBreak = mockDatabase.breaks.find(b => b.managerId === state.currentManagerId && !b.endTime);
-
-            if (activeBreak) {
-                buttonsContainer.innerHTML = `
-                    <p class="mb-4">You started your break at ${new Date(activeBreak.startTime).toLocaleTimeString()}.</p>
-                    <button id="action-btn" onclick="window.endBreak()" class="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200">
-                        ${state.isLoading ? '<div class="lds-ring"><div></div><div></div><div></div><div></div></div>' : 'End Break'}
-                    </button>
-                `;
-            } else {
-                buttonsContainer.innerHTML = `
-                    <button id="action-btn" onclick="window.startBreak()" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200">
-                        ${state.isLoading ? '<div class="lds-ring"><div></div><div></div><div></div><div></div></div>' : 'Start Break'}
-                    </button>
-                `;
-            }
-        }
-        
-        function initAdmin() {
-            // The AdminView function already renders the tables.
-            // In a real app, you might set up real-time listeners (e.g., Firestore onSnapshot) here.
-        }
-
-        // --- ACTIONS ---
-        window.startBreak = function() {
-            if (state.isLoading) return;
-            state.isLoading = true;
-            renderActionButtons();
-
-            setTimeout(() => { // Simulate network delay
-                const manager = mockDatabase.managers.find(m => m.id === state.currentManagerId);
-                mockDatabase.breaks.push({
-                    managerId: manager.id,
-                    managerName: manager.name,
-                    startTime: new Date().toISOString(),
-                    endTime: null,
-                    duration: null
+            renderForm(token, '', true);
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ partnerNumber, action, token })
                 });
-                state.isLoading = false;
-                renderActionButtons();
-                showToast(`Break started for ${manager.name}.`);
-            }, 500);
+                const result = await response.json();
+                if (result.status === 'success') {
+                    renderSuccess(result.message);
+                } else {
+                    renderForm(token, result.message || 'An unknown error occurred.');
+                }
+            } catch (error) {
+                renderForm(token, 'Network error. Could not submit break.');
+            }
         }
 
-        window.endBreak = function() {
-            if (state.isLoading) return;
-            state.isLoading = true;
-            renderActionButtons();
+        // --- VIEW RENDERING ---
+
+        function renderKiosk() {
+            appContainer.innerHTML = `
+                <div class="text-center">
+                    <h1 class="text-3xl font-bold text-gray-900">Breaks Report</h1>
+                    <p class="mt-2 text-gray-600">Scan the code to log your break.</p>
+                    <div class="relative flex justify-center my-6 min-h-[216px] items-center">
+                        <div id="qrcode-wrapper">
+                            <!-- QR Code and overlay will be injected here -->
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <p id="timer-status" class="text-sm text-gray-500">New code in:</p>
+                        <div id="timer" class="text-2xl font-mono text-indigo-600">--</div>
+                    </div>
+                </div>
+            `;
+
+            let countdown = 120;
+            const timerDisplay = document.getElementById('timer');
+            const timerStatus = document.getElementById('timer-status');
+            const qrcodeWrapper = document.getElementById('qrcode-wrapper');
             
-            setTimeout(() => { // Simulate network delay
-                const activeBreak = mockDatabase.breaks.find(b => b.managerId === state.currentManagerId && !b.endTime);
-                if (activeBreak) {
-                    activeBreak.endTime = new Date().toISOString();
-                    const durationMs = new Date(activeBreak.endTime) - new Date(activeBreak.startTime);
-                    const minutes = Math.floor(durationMs / 60000);
-                    const seconds = ((durationMs % 60000) / 1000).toFixed(0);
-                    activeBreak.duration = `${minutes}m ${seconds}s`;
+            const updateKiosk = async () => {
+                countdown = 120;
+                timerStatus.textContent = 'New code in:';
+
+                const token = generateToken();
+                const formUrl = `${window.location.href.split('?')[0]}?view=form&token=${token}`;
+
+                // **THE FIX**: Display the QR code instantly with a "Syncing..." overlay.
+                qrcodeWrapper.innerHTML = `
+                    <div id="qrcode-container" class="p-4 bg-white rounded-lg relative"></div>
+                    <div id="qr-overlay" class="qr-overlay">
+                        <div class="loader"></div>
+                        <p class="mt-2 text-sm font-semibold text-gray-700">Syncing...</p>
+                    </div>
+                `;
+                new QRCode(document.getElementById('qrcode-container'), { text: formUrl, width: 200, height: 200 });
+
+                // Sync with the server in the background.
+                const result = await setServerToken(token);
+
+                // Remove the overlay once synced.
+                if (result.success) {
+                    const overlay = document.getElementById('qr-overlay');
+                    if(overlay) overlay.remove();
+                } else {
+                    qrcodeWrapper.innerHTML = `<div class="text-red-600 font-semibold p-4">Error: Could not sync with server.</div>`;
+                    timerStatus.textContent = 'Connection Failed';
                 }
-                state.isLoading = false;
-                renderActionButtons();
-                showToast(`Break ended for ${activeBreak.managerName}.`);
-            }, 500);
+            };
+
+            const timerInterval = setInterval(() => {
+                if (new URLSearchParams(window.location.search).get('view') === 'form') {
+                    clearInterval(timerInterval);
+                    return;
+                }
+                if (timerStatus.textContent === 'New code in:') {
+                     timerDisplay.textContent = `${Math.floor(countdown / 60)}m ${countdown % 60}s`;
+                }
+                countdown--;
+                if (countdown < 0) {
+                    updateKiosk();
+                }
+            }, 1000);
+
+            updateKiosk();
+        }
+
+        function renderForm(token, errorMessage = '', isLoading = false) {
+            appContainer.innerHTML = `
+                <div>
+                    <h1 class="text-2xl font-bold text-center mb-4 text-gray-900">Breaks Report</h1>
+                    ${errorMessage ? `<div class="text-red-600 text-center mb-4 font-medium">${errorMessage}</div>` : ''}
+                    <div class="space-y-6">
+                        <div>
+                            <label for="partner-number" class="block text-sm font-medium text-gray-700 mb-1">Partner Number</label>
+                            <input type="number" id="partner-number" class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <button id="start-btn" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 flex items-center justify-center disabled:opacity-50">Start Break</button>
+                            <button id="end-btn" class="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 flex items-center justify-center disabled:opacity-50">End Break</button>
+                        </div>
+                        ${isLoading ? `<div class="flex justify-center pt-4"><div class="loader"></div></div>` : ''}
+                    </div>
+                </div>
+            `;
+            const startBtn = document.getElementById('start-btn');
+            const endBtn = document.getElementById('end-btn');
+            startBtn.onclick = () => submitBreak('Start Break', token);
+            endBtn.onclick = () => submitBreak('End Break', token);
+            startBtn.disabled = isLoading;
+            endBtn.disabled = isLoading;
+        }
+
+        function renderSuccess(message) {
+            appContainer.innerHTML = `
+                <div class="text-center">
+                    <svg class="mx-auto h-16 w-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <h2 class="mt-4 text-2xl font-bold text-gray-900">Success!</h2>
+                    <p class="mt-2 text-gray-600">${message}</p>
+                    <p class="mt-6 text-sm text-gray-500">You can now close this window.</p>
+                </div>
+            `;
         }
         
+        function ErrorView(message) {
+            return `<div class="text-center"><h2 class="text-2xl font-bold text-red-600">Error</h2><p class="mt-2 text-gray-600">${message}</p></div>`;
+        }
+
         // --- INITIALIZATION ---
-        window.navigateTo = navigate; // Make navigate globally accessible
-
-        // Initial render based on URL params
-        const initialParams = new URLSearchParams(window.location.search);
-        const initialView = initialParams.get('view') || 'kiosk';
-        navigate(initialView, Object.fromEntries(initialParams.entries()));
-
+        window.onload = () => {
+            if (GOOGLE_SCRIPT_URL === 'PASTE_YOUR_WEB_APP_URL_HERE') {
+                 appContainer.innerHTML = ErrorView('The application is not configured. Please paste your Google Apps Script URL into the HTML file.');
+                 return;
+            }
+            const params = new URLSearchParams(window.location.search);
+            const view = params.get('view');
+            const token = params.get('token');
+            if (view === 'form' && token) {
+                renderForm(token);
+            } else {
+                renderKiosk();
+            }
+        };
     </script>
 </body>
 </html>
