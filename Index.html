@@ -33,6 +33,9 @@
     <div id="app-container" class="w-full max-w-sm mx-auto bg-white rounded-2xl shadow-xl p-8">
         <!-- Views will be rendered here -->
     </div>
+    
+    <!-- Hidden canvas for capturing video frames -->
+    <canvas id="capture-canvas" class="hidden"></canvas>
 
     <script>
         // --- CONFIGURATION ---
@@ -42,7 +45,6 @@
         let ocrWorker = null;
         let videoStream = null;
         let currentAction = ''; // 'Start Break' or 'End Break'
-        let scanInterval = null; // To control the scanning frequency
 
         // --- CORE OCR LOGIC ---
         async function initializeOCR() {
@@ -59,10 +61,6 @@
         }
 
         function stopOCR() {
-            if (scanInterval) {
-                clearInterval(scanInterval);
-                scanInterval = null;
-            }
             if (ocrWorker) {
                 ocrWorker.terminate();
                 ocrWorker = null;
@@ -86,32 +84,38 @@
             try {
                 videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 video.srcObject = videoStream;
-                video.onloadedmetadata = () => {
-                    video.play();
-                    // **THE FIX**: Use setInterval for controlled, periodic scanning.
-                    scanInterval = setInterval(() => recognizeText(video), 2000); // Scan every 2 seconds
-                };
+                video.play();
             } catch (err) {
                 renderErrorView('Could not access camera. Please grant permission and try again.');
             }
         }
 
-        async function recognizeText(video) {
-            if (!videoStream || !ocrWorker) return; // Stop if camera/worker is not ready
+        async function captureAndRecognize() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('capture-canvas');
+            if (!videoStream || !ocrWorker) return;
+
+            renderLoadingView('Processing image...');
+
+            // Match canvas size to video stream size for a clear image
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+            
+            stopCamera(); // Stop the camera after taking the picture
 
             try {
-                const { data: { text } } = await ocrWorker.recognize(video);
+                const { data: { text } } = await ocrWorker.recognize(canvas);
                 const partnerId = parseText(text);
 
                 if (partnerId) {
-                    stopCamera();
-                    stopOCR(); // Stop the scanning loop
                     renderConfirmationView(partnerId);
+                } else {
+                    renderErrorView('Could not read a name or ID. Please try again with a clearer picture.');
                 }
-                // If no ID is found, the interval will simply trigger the next scan.
             } catch (error) {
                 console.error("OCR Error:", error);
-                // The interval will continue trying.
+                renderErrorView('An error occurred during text recognition.');
             }
         }
         
@@ -119,16 +123,13 @@
             const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
             
             for (const line of lines) {
-                // Ignore the location and "Agency" keyword explicitly
                 if (line.toLowerCase().includes('magna park') || line.toLowerCase() === 'agency') continue;
 
-                // Check for a 4-digit agency number on its own line
                 const agencyMatch = line.match(/^\d{4}$/);
                 if (agencyMatch) {
                     return `Agency ${agencyMatch[0]}`;
                 }
 
-                // Check for a multi-word name (at least two words)
                 const nameMatch = line.match(/([A-Za-z]{2,})\s+([A-Za-z]{2,})/);
                 if (nameMatch) {
                     return nameMatch[0];
@@ -166,8 +167,8 @@
 
         // --- VIEW RENDERING ---
         function renderStartScreen() {
-            stopCamera(); // Ensure camera is off
-            stopOCR();    // Ensure OCR worker is terminated
+            stopCamera();
+            stopOCR();
             appContainer.innerHTML = `
                 <div class="text-center">
                     <h1 class="text-3xl font-bold text-gray-900">Breaks Report</h1>
@@ -184,15 +185,12 @@
             appContainer.innerHTML = `
                 <div class="text-center">
                     <h1 class="text-2xl font-bold text-gray-900">Scan Partner Card</h1>
-                    <p class="mt-1 text-gray-500">Hold the card steady in the frame.</p>
+                    <p class="mt-1 text-gray-500">Position the card in the frame and tap below.</p>
                     <div id="video-container" class="my-4">
                         <video id="video" muted playsinline></video>
                     </div>
-                    <div id="ocr-status" class="flex items-center justify-center text-gray-600">
-                        <div class="loader mr-2"></div>
-                        <span>Scanning for text...</span>
-                    </div>
-                    <button onclick="renderStartScreen()" class="mt-6 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+                    <button onclick="captureAndRecognize()" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 text-lg">Take Photo</button>
+                    <button onclick="renderStartScreen()" class="mt-4 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
                 </div>
             `;
         }
@@ -222,7 +220,7 @@
                     <p class="mt-2 text-gray-600">${message}</p>
                 </div>
             `;
-            setTimeout(renderStartScreen, 2500); // Go back to start screen after 2.5 seconds
+            setTimeout(renderStartScreen, 2500);
         }
 
         function renderErrorView(message) {
@@ -257,7 +255,6 @@
             renderStartScreen();
         };
         
-        // Clean up when the user navigates away
         window.onbeforeunload = () => {
             stopCamera();
             stopOCR();
