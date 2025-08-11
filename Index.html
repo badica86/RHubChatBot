@@ -88,8 +88,7 @@
                 video.srcObject = videoStream;
                 video.onloadedmetadata = () => {
                     video.play();
-                    // Use setInterval for controlled, periodic scanning.
-                    scanInterval = setInterval(() => recognizeText(video), 2000); // Scan every 2 seconds
+                    scanInterval = setInterval(() => recognizeText(video), 2500); // Scan every 2.5 seconds
                 };
             } catch (err) {
                 renderErrorView('Could not access camera. Please grant permission and try again.');
@@ -97,7 +96,7 @@
         }
 
         async function recognizeText(video) {
-            if (!videoStream || !ocrWorker) return; // Stop if camera/worker is not ready
+            if (!videoStream || !ocrWorker) return;
 
             try {
                 const { data: { text } } = await ocrWorker.recognize(video);
@@ -105,13 +104,11 @@
 
                 if (partnerId) {
                     stopCamera();
-                    stopOCR(); // Stop the scanning loop
+                    stopOCR();
                     renderConfirmationView(partnerId);
                 }
-                // If no ID is found, the interval will simply trigger the next scan.
             } catch (error) {
                 console.error("OCR Error:", error);
-                // The interval will continue trying.
             }
         }
         
@@ -138,22 +135,24 @@
                 }
             }
 
-            if (agencyId) {
-                return `Agency ${agencyId}`;
-            }
-
-            if (nameParts.length >= 2) {
-                return `${nameParts[0]} ${nameParts[1]}`;
-            } else if (nameParts.length === 1) {
-                return nameParts[0];
-            }
-            
+            if (agencyId) return `Agency ${agencyId}`;
+            if (nameParts.length >= 2) return `${nameParts[0]} ${nameParts[1]}`;
+            if (nameParts.length === 1) return nameParts[0];
             return null;
         }
 
 
         // --- BACKEND COMMUNICATION ---
         async function submitBreak(partnerId) {
+            if (!partnerId) {
+                // This case is for manual entry form
+                const partnerIdInput = document.getElementById('partner-id-manual');
+                partnerId = partnerIdInput.value;
+                if (!partnerId) {
+                    renderManualEntryView('Partner ID cannot be empty.');
+                    return;
+                }
+            }
             renderLoadingView('Logging break...');
             try {
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -161,7 +160,7 @@
                     mode: 'cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({
-                        token: 'ocr-scan', 
+                        token: 'hybrid-scan', 
                         partnerNumber: partnerId,
                         action: currentAction
                     })
@@ -206,7 +205,28 @@
                         <div class="loader mr-2"></div>
                         <span>Scanning for text...</span>
                     </div>
-                    <button onclick="renderStartScreen()" class="mt-6 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+                    <div class="mt-6">
+                        <p class="text-sm text-gray-500 mb-2">Scan not working?</p>
+                        <button onclick="renderManualEntryView()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300">Enter ID Manually</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderManualEntryView(errorMessage = '') {
+            stopCamera();
+            stopOCR();
+            appContainer.innerHTML = `
+                 <div class="text-center">
+                    <h1 class="text-2xl font-bold text-gray-900">Manual Entry</h1>
+                    <p class="mt-1 text-gray-500">Enter the Partner Name or Agency ID.</p>
+                    ${errorMessage ? `<div class="text-red-600 text-left mt-4 font-medium">${errorMessage}</div>` : ''}
+                    <div class="mt-6 text-left">
+                         <label for="partner-id-manual" class="block text-sm font-medium text-gray-700">Partner ID</label>
+                         <input type="text" id="partner-id-manual" class="mt-1 w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <button onclick="submitBreak()" class="mt-6 w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700">Log ${currentAction}</button>
+                    <button onclick="renderStartScreen()" class="mt-4 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
                 </div>
             `;
         }
