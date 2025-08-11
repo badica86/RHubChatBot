@@ -28,7 +28,7 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+<body class="flex items-center justify-center min-h-screen p-4" style="background-color: #003B25;">
 
     <div id="app-container" class="w-full max-w-sm mx-auto bg-white rounded-2xl shadow-xl p-8">
         <!-- Views will be rendered here -->
@@ -50,7 +50,7 @@
             }
         }
 
-        function stop OCR() {
+        function stopOCR() {
             if (ocrWorker) {
                 ocrWorker.terminate();
                 ocrWorker = null;
@@ -161,8 +161,8 @@
                     <h1 class="text-3xl font-bold text-gray-900">Breaks Report</h1>
                     <p class="mt-2 text-gray-600">Select an action to begin.</p>
                     <div class="mt-8 space-y-4">
-                        <button onclick="handleActionClick('Start Break')" class="w-full bg-green-600 text-white font-bold py-4 px-4 rounded-lg hover:bg-green-700 text-lg">Start Break</button>
-                        <button onclick="handleActionClick('End Break')" class="w-full bg-red-600 text-white font-bold py-4 px-4 rounded-lg hover:bg-red-700 text-lg">End Break</button>
+                        <button onclick="handleActionClick('Start Break')" class="w-full bg-green-500 text-white font-bold py-4 px-4 rounded-lg hover:bg-green-600 text-lg">Start Break</button>
+                        <button onclick="handleActionClick('End Break')" class="w-full bg-red-500 text-white font-bold py-4 px-4 rounded-lg hover:bg-red-600 text-lg">End Break</button>
                     </div>
                 </div>
             `;
