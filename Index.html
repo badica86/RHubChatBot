@@ -5,17 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Breaks Report</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tesseract.js for OCR -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
+        #video-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin: auto;
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+        }
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
         .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #3498db; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="flex items-start md:items-center justify-center min-h-screen p-4" style="background-color: #003B25;">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
 
-    <div id="app-container" class="w-full max-w-sm mx-auto bg-white rounded-2xl shadow-xl p-8 mt-16 md:mt-0">
+    <div id="app-container" class="w-full max-w-sm mx-auto bg-white rounded-2xl shadow-xl p-8">
         <!-- Views will be rendered here -->
     </div>
 
@@ -24,160 +39,218 @@
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxtHwLLd4RHT23EZjmKtcwuyDpDqSCwTZmcMHlasIzV9qHsCx30rmcqAtYDKw5nmft5g/exec';
 
         const appContainer = document.getElementById('app-container');
+        let ocrWorker = null;
+        let videoStream = null;
+        let currentAction = ''; // 'Start Break' or 'End Break'
 
-        // --- CORE APP LOGIC ---
-
-        function generateToken() {
-            return Math.random().toString(36).substring(2, 15);
-        }
-
-        // Tells the Google Sheet script what the new valid token is.
-        function setServerToken(token) {
-            // This function now runs in the background ("fire and forget").
-            // It doesn't need to return anything because the UI updates instantly.
-            fetch(`${GOOGLE_SCRIPT_URL}?token=${token}`).catch(error => {
-                console.error('Background sync failed:', error);
-            });
-        }
-
-        async function submitBreak(action, token) {
-            const partnerNumberInput = document.getElementById('partner-number');
-            const partnerNumber = partnerNumberInput.value;
-            if (!partnerNumber) {
-                renderForm(token, 'Please enter a Partner Number.');
-                return;
+        // --- CORE OCR LOGIC ---
+        async function initializeOCR() {
+            if (!ocrWorker) {
+                ocrWorker = await Tesseract.createWorker('eng');
             }
-            renderForm(token, '', true);
+        }
+
+        function stop OCR() {
+            if (ocrWorker) {
+                ocrWorker.terminate();
+                ocrWorker = null;
+            }
+        }
+
+        function stopCamera() {
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+        }
+
+        async function startScan() {
+            renderScannerView();
+            await initializeOCR();
+            
+            const video = document.getElementById('video');
+            try {
+                videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                video.srcObject = videoStream;
+                video.play();
+                recognizeText(video);
+            } catch (err) {
+                renderErrorView('Could not access camera. Please grant permission and try again.');
+            }
+        }
+
+        async function recognizeText(video) {
+            const statusElement = document.getElementById('ocr-status');
+            if (!videoStream) return; // Stop if the camera has been turned off
+
+            try {
+                const { data: { text } } = await ocrWorker.recognize(video);
+                const partnerId = parseText(text);
+
+                if (partnerId) {
+                    stopCamera();
+                    renderConfirmationView(partnerId);
+                } else {
+                    // Continue scanning
+                    requestAnimationFrame(() => recognizeText(video));
+                }
+            } catch (error) {
+                console.error("OCR Error:", error);
+                requestAnimationFrame(() => recognizeText(video)); // Keep trying
+            }
+        }
+        
+        function parseText(text) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            let potentialId = null;
+
+            for (const line of lines) {
+                // Ignore the location
+                if (line.toLowerCase().includes('magna park')) continue;
+                // Ignore the word "Agency"
+                if (line.toLowerCase().includes('agency')) continue;
+
+                // Check for a 4-digit agency number
+                const agencyMatch = line.match(/\b\d{4}\b/);
+                if (agencyMatch) {
+                    return `Agency ${agencyMatch[0]}`;
+                }
+
+                // Check for a multi-word name (likely a partner)
+                const nameMatch = line.match(/([A-Za-z]+)\s+([A-Za-z]+)/);
+                if (nameMatch && nameMatch[0].length > 4) { // Basic check to avoid short words
+                    return nameMatch[0];
+                }
+            }
+            return null;
+        }
+
+
+        // --- BACKEND COMMUNICATION ---
+        async function submitBreak(partnerId) {
+            renderLoadingView('Logging break...');
             try {
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
                     mode: 'cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ partnerNumber, action, token })
+                    body: JSON.stringify({
+                        // Using a dummy token as the QR code is replaced by OCR
+                        token: 'ocr-scan', 
+                        partnerNumber: partnerId,
+                        action: currentAction
+                    })
                 });
                 const result = await response.json();
                 if (result.status === 'success') {
-                    renderSuccess(result.message);
+                    renderSuccessView(result.message);
                 } else {
-                    renderForm(token, result.message || 'An unknown error occurred.');
+                    renderErrorView(result.message || 'An unknown error occurred.');
                 }
             } catch (error) {
-                renderForm(token, 'Network error. Could not submit break.');
+                renderErrorView('Network error. Could not submit break.');
             }
         }
 
-        // --- VIEW RENDERING ---
 
-        function renderKiosk() {
+        // --- VIEW RENDERING ---
+        function renderStartScreen() {
+            stopCamera(); // Ensure camera is off
             appContainer.innerHTML = `
                 <div class="text-center">
                     <h1 class="text-3xl font-bold text-gray-900">Breaks Report</h1>
-                    <p class="mt-2 text-gray-600">Scan the code to log your break.</p>
-                    <div class="relative flex justify-center my-6 min-h-[216px] items-center">
-                        <div id="qrcode-container" class="p-4 bg-white rounded-lg">
-                            <!-- QR Code will be injected here -->
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <p id="timer-status" class="text-sm text-gray-500">New code in:</p>
-                        <div id="timer" class="text-2xl font-mono text-indigo-600">--</div>
+                    <p class="mt-2 text-gray-600">Select an action to begin.</p>
+                    <div class="mt-8 space-y-4">
+                        <button onclick="handleActionClick('Start Break')" class="w-full bg-green-600 text-white font-bold py-4 px-4 rounded-lg hover:bg-green-700 text-lg">Start Break</button>
+                        <button onclick="handleActionClick('End Break')" class="w-full bg-red-600 text-white font-bold py-4 px-4 rounded-lg hover:bg-red-700 text-lg">End Break</button>
                     </div>
                 </div>
             `;
-
-            let countdown = 120;
-            const timerDisplay = document.getElementById('timer');
-            const qrcodeContainer = document.getElementById('qrcode-container');
-            
-            const updateKiosk = () => {
-                countdown = 120;
-                const token = generateToken();
-                const formUrl = `${window.location.href.split('?')[0]}?view=form&token=${token}`;
-
-                // **THE FIX**: Instantly update the QR code on the screen.
-                qrcodeContainer.innerHTML = '';
-                new QRCode(qrcodeContainer, {
-                    text: formUrl,
-                    width: 200,
-                    height: 200,
-                    correctLevel: QRCode.CorrectLevel.H
-                });
-
-                // Sync with the server silently in the background.
-                setServerToken(token);
-            };
-
-            const timerInterval = setInterval(() => {
-                if (new URLSearchParams(window.location.search).get('view') === 'form') {
-                    clearInterval(timerInterval);
-                    return;
-                }
-                timerDisplay.textContent = `${Math.floor(countdown / 60)}m ${String(countdown % 60).padStart(2, '0')}s`;
-                countdown--;
-                if (countdown < 0) {
-                    updateKiosk();
-                }
-            }, 1000);
-
-            updateKiosk();
         }
 
-        function renderForm(token, errorMessage = '', isLoading = false) {
+        function renderScannerView() {
             appContainer.innerHTML = `
-                <div>
-                    <h1 class="text-2xl font-bold text-center mb-4 text-gray-900">Breaks Report</h1>
-                    ${errorMessage ? `<div class="text-red-600 text-center mb-4 font-medium">${errorMessage}</div>` : ''}
-                    <div class="space-y-6">
-                        <div>
-                            <label for="partner-number" class="block text-sm font-medium text-gray-700 mb-1">Partner Number</label>
-                            <input type="number" id="partner-number" class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <button id="start-btn" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 flex items-center justify-center disabled:opacity-50">Start Break</button>
-                            <button id="end-btn" class="w-full bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 flex items-center justify-center disabled:opacity-50">End Break</button>
-                        </div>
-                        ${isLoading ? `<div class="flex justify-center pt-4"><div class="loader"></div></div>` : ''}
+                <div class="text-center">
+                    <h1 class="text-2xl font-bold text-gray-900">Scan Partner Card</h1>
+                    <p class="mt-1 text-gray-500">Hold the card steady in front of the camera.</p>
+                    <div id="video-container" class="my-4">
+                        <video id="video" muted playsinline></video>
+                    </div>
+                    <div id="ocr-status" class="flex items-center justify-center text-gray-600">
+                        <div class="loader mr-2"></div>
+                        <span>Scanning...</span>
+                    </div>
+                    <button onclick="renderStartScreen()" class="mt-6 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+                </div>
+            `;
+        }
+
+        function renderConfirmationView(partnerId) {
+             appContainer.innerHTML = `
+                <div class="text-center">
+                    <h1 class="text-2xl font-bold text-gray-900">Confirm Information</h1>
+                    <div class="my-6 p-4 bg-gray-100 rounded-lg">
+                        <p class="text-gray-600">Detected ID:</p>
+                        <p class="text-2xl font-bold text-indigo-600">${partnerId}</p>
+                    </div>
+                    <p class="mb-6 text-gray-600">Is this correct?</p>
+                    <div class="space-y-4">
+                        <button onclick="submitBreak('${partnerId}')" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700">Yes, Log Break</button>
+                        <button onclick="startScan()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300">No, Scan Again</button>
                     </div>
                 </div>
             `;
-            const startBtn = document.getElementById('start-btn');
-            const endBtn = document.getElementById('end-btn');
-            startBtn.onclick = () => submitBreak('Start Break', token);
-            endBtn.onclick = () => submitBreak('End Break', token);
-            startBtn.disabled = isLoading;
-            endBtn.disabled = isLoading;
         }
-
-        function renderSuccess(message) {
+        
+        function renderSuccessView(message) {
             appContainer.innerHTML = `
                 <div class="text-center">
                     <svg class="mx-auto h-16 w-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <h2 class="mt-4 text-2xl font-bold text-gray-900">Success!</h2>
                     <p class="mt-2 text-gray-600">${message}</p>
-                    <p class="mt-6 text-sm text-gray-500">You can now close this window.</p>
+                </div>
+            `;
+            setTimeout(renderStartScreen, 2500); // Go back to start screen after 2.5 seconds
+        }
+
+        function renderErrorView(message) {
+            appContainer.innerHTML = `
+                <div class="text-center">
+                     <svg class="mx-auto h-16 w-16 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <h2 class="mt-4 text-2xl font-bold text-red-600">Error</h2>
+                    <p class="mt-2 text-gray-600">${message}</p>
+                    <button onclick="renderStartScreen()" class="mt-6 w-full bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300">Back to Start</button>
                 </div>
             `;
         }
         
-        function ErrorView(message) {
-            return `<div class="text-center"><h2 class="text-2xl font-bold text-red-600">Error</h2><p class="mt-2 text-gray-600">${message}</p></div>`;
+        function renderLoadingView(message) {
+            appContainer.innerHTML = `
+                <div class="text-center">
+                    <div class="loader"></div>
+                    <p class="mt-4 text-lg font-semibold text-gray-700">${message}</p>
+                </div>
+            `;
         }
+
+        // --- EVENT HANDLERS ---
+        window.handleActionClick = (action) => {
+            currentAction = action;
+            startScan();
+        };
+
 
         // --- INITIALIZATION ---
         window.onload = () => {
-            if (GOOGLE_SCRIPT_URL === 'PASTE_YOUR_WEB_APP_URL_HERE') {
-                 appContainer.innerHTML = ErrorView('The application is not configured. Please paste your Google Apps Script URL into the HTML file.');
-                 return;
-            }
-            const params = new URLSearchParams(window.location.search);
-            const view = params.get('view');
-            const token = params.get('token');
-            if (view === 'form' && token) {
-                renderForm(token);
-            } else {
-                renderKiosk();
-            }
+            renderStartScreen();
         };
+        
+        // Clean up when the user navigates away
+        window.onbeforeunload = () => {
+            stopCamera();
+            stopOCR();
+        };
+
     </script>
 </body>
 </html>
