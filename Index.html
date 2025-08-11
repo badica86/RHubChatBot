@@ -42,15 +42,27 @@
         let ocrWorker = null;
         let videoStream = null;
         let currentAction = ''; // 'Start Break' or 'End Break'
+        let scanInterval = null; // To control the scanning frequency
 
         // --- CORE OCR LOGIC ---
         async function initializeOCR() {
+            renderLoadingView('Preparing camera...');
             if (!ocrWorker) {
-                ocrWorker = await Tesseract.createWorker('eng');
+                try {
+                    ocrWorker = await Tesseract.createWorker('eng');
+                } catch (error) {
+                    renderErrorView('Could not initialize OCR engine.');
+                    return false;
+                }
             }
+            return true;
         }
 
         function stopOCR() {
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
             if (ocrWorker) {
                 ocrWorker.terminate();
                 ocrWorker = null;
@@ -65,23 +77,27 @@
         }
 
         async function startScan() {
+            const isReady = await initializeOCR();
+            if (!isReady) return;
+
             renderScannerView();
-            await initializeOCR();
             
             const video = document.getElementById('video');
             try {
                 videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                 video.srcObject = videoStream;
-                video.play();
-                recognizeText(video);
+                video.onloadedmetadata = () => {
+                    video.play();
+                    // **THE FIX**: Use setInterval for controlled, periodic scanning.
+                    scanInterval = setInterval(() => recognizeText(video), 2000); // Scan every 2 seconds
+                };
             } catch (err) {
                 renderErrorView('Could not access camera. Please grant permission and try again.');
             }
         }
 
         async function recognizeText(video) {
-            const statusElement = document.getElementById('ocr-status');
-            if (!videoStream) return; // Stop if the camera has been turned off
+            if (!videoStream || !ocrWorker) return; // Stop if camera/worker is not ready
 
             try {
                 const { data: { text } } = await ocrWorker.recognize(video);
@@ -89,36 +105,32 @@
 
                 if (partnerId) {
                     stopCamera();
+                    stopOCR(); // Stop the scanning loop
                     renderConfirmationView(partnerId);
-                } else {
-                    // Continue scanning
-                    requestAnimationFrame(() => recognizeText(video));
                 }
+                // If no ID is found, the interval will simply trigger the next scan.
             } catch (error) {
                 console.error("OCR Error:", error);
-                requestAnimationFrame(() => recognizeText(video)); // Keep trying
+                // The interval will continue trying.
             }
         }
         
         function parseText(text) {
-            const lines = text.split('\n').filter(line => line.trim() !== '');
-            let potentialId = null;
-
+            const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+            
             for (const line of lines) {
-                // Ignore the location
-                if (line.toLowerCase().includes('magna park')) continue;
-                // Ignore the word "Agency"
-                if (line.toLowerCase().includes('agency')) continue;
+                // Ignore the location and "Agency" keyword explicitly
+                if (line.toLowerCase().includes('magna park') || line.toLowerCase() === 'agency') continue;
 
-                // Check for a 4-digit agency number
-                const agencyMatch = line.match(/\b\d{4}\b/);
+                // Check for a 4-digit agency number on its own line
+                const agencyMatch = line.match(/^\d{4}$/);
                 if (agencyMatch) {
                     return `Agency ${agencyMatch[0]}`;
                 }
 
-                // Check for a multi-word name (likely a partner)
-                const nameMatch = line.match(/([A-Za-z]+)\s+([A-Za-z]+)/);
-                if (nameMatch && nameMatch[0].length > 4) { // Basic check to avoid short words
+                // Check for a multi-word name (at least two words)
+                const nameMatch = line.match(/([A-Za-z]{2,})\s+([A-Za-z]{2,})/);
+                if (nameMatch) {
                     return nameMatch[0];
                 }
             }
@@ -135,7 +147,6 @@
                     mode: 'cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({
-                        // Using a dummy token as the QR code is replaced by OCR
                         token: 'ocr-scan', 
                         partnerNumber: partnerId,
                         action: currentAction
@@ -156,6 +167,7 @@
         // --- VIEW RENDERING ---
         function renderStartScreen() {
             stopCamera(); // Ensure camera is off
+            stopOCR();    // Ensure OCR worker is terminated
             appContainer.innerHTML = `
                 <div class="text-center">
                     <h1 class="text-3xl font-bold text-gray-900">Breaks Report</h1>
@@ -172,13 +184,13 @@
             appContainer.innerHTML = `
                 <div class="text-center">
                     <h1 class="text-2xl font-bold text-gray-900">Scan Partner Card</h1>
-                    <p class="mt-1 text-gray-500">Hold the card steady in front of the camera.</p>
+                    <p class="mt-1 text-gray-500">Hold the card steady in the frame.</p>
                     <div id="video-container" class="my-4">
                         <video id="video" muted playsinline></video>
                     </div>
                     <div id="ocr-status" class="flex items-center justify-center text-gray-600">
                         <div class="loader mr-2"></div>
-                        <span>Scanning...</span>
+                        <span>Scanning for text...</span>
                     </div>
                     <button onclick="renderStartScreen()" class="mt-6 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
                 </div>
