@@ -11,20 +11,6 @@
         body { font-family: 'Inter', sans-serif; }
         .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #3498db; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .qr-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(255, 255, 255, 0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            border-radius: 0.5rem;
-            backdrop-filter: blur(2px);
-        }
     </style>
 </head>
 <body class="flex items-start md:items-center justify-center min-h-screen p-4" style="background-color: #003B25;">
@@ -45,15 +31,13 @@
             return Math.random().toString(36).substring(2, 15);
         }
 
-        async function setServerToken(token) {
-            try {
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?token=${token}`);
-                if (!response.ok) return { success: false };
-                const result = await response.json();
-                return result.status === 'success' ? { success: true } : { success: false };
-            } catch (error) {
-                return { success: false };
-            }
+        // Tells the Google Sheet script what the new valid token is.
+        function setServerToken(token) {
+            // This function now runs in the background ("fire and forget").
+            // It doesn't need to return anything because the UI updates instantly.
+            fetch(`${GOOGLE_SCRIPT_URL}?token=${token}`).catch(error => {
+                console.error('Background sync failed:', error);
+            });
         }
 
         async function submitBreak(action, token) {
@@ -90,8 +74,8 @@
                     <h1 class="text-3xl font-bold text-gray-900">Breaks Report</h1>
                     <p class="mt-2 text-gray-600">Scan the code to log your break.</p>
                     <div class="relative flex justify-center my-6 min-h-[216px] items-center">
-                        <div id="qrcode-wrapper">
-                            <!-- QR Code and overlay will be injected here -->
+                        <div id="qrcode-container" class="p-4 bg-white rounded-lg">
+                            <!-- QR Code will be injected here -->
                         </div>
                     </div>
                     <div class="mt-4">
@@ -103,37 +87,24 @@
 
             let countdown = 120;
             const timerDisplay = document.getElementById('timer');
-            const timerStatus = document.getElementById('timer-status');
-            const qrcodeWrapper = document.getElementById('qrcode-wrapper');
+            const qrcodeContainer = document.getElementById('qrcode-container');
             
-            const updateKiosk = async () => {
+            const updateKiosk = () => {
                 countdown = 120;
-                timerStatus.textContent = 'New code in:';
-
                 const token = generateToken();
                 const formUrl = `${window.location.href.split('?')[0]}?view=form&token=${token}`;
 
-                // **THE FIX**: Display the QR code instantly with a "Syncing..." overlay.
-                qrcodeWrapper.innerHTML = `
-                    <div id="qrcode-container" class="p-4 bg-white rounded-lg relative"></div>
-                    <div id="qr-overlay" class="qr-overlay">
-                        <div class="loader"></div>
-                        <p class="mt-2 text-sm font-semibold text-gray-700">Syncing...</p>
-                    </div>
-                `;
-                new QRCode(document.getElementById('qrcode-container'), { text: formUrl, width: 200, height: 200 });
+                // **THE FIX**: Instantly update the QR code on the screen.
+                qrcodeContainer.innerHTML = '';
+                new QRCode(qrcodeContainer, {
+                    text: formUrl,
+                    width: 200,
+                    height: 200,
+                    correctLevel: QRCode.CorrectLevel.H
+                });
 
-                // Sync with the server in the background.
-                const result = await setServerToken(token);
-
-                // Remove the overlay once synced.
-                if (result.success) {
-                    const overlay = document.getElementById('qr-overlay');
-                    if(overlay) overlay.remove();
-                } else {
-                    qrcodeWrapper.innerHTML = `<div class="text-red-600 font-semibold p-4">Error: Could not sync with server.</div>`;
-                    timerStatus.textContent = 'Connection Failed';
-                }
+                // Sync with the server silently in the background.
+                setServerToken(token);
             };
 
             const timerInterval = setInterval(() => {
@@ -141,9 +112,7 @@
                     clearInterval(timerInterval);
                     return;
                 }
-                if (timerStatus.textContent === 'New code in:') {
-                     timerDisplay.textContent = `${Math.floor(countdown / 60)}m ${countdown % 60}s`;
-                }
+                timerDisplay.textContent = `${Math.floor(countdown / 60)}m ${String(countdown % 60).padStart(2, '0')}s`;
                 countdown--;
                 if (countdown < 0) {
                     updateKiosk();
