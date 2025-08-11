@@ -121,7 +121,7 @@
         }
         
         function parseText(text) {
-            const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+            const lines = text.split('\n').map(line => line.trim().replace(/[^a-zA-Z0-9\s]/g, '')).filter(Boolean);
             let nameParts = [];
             let agencyId = null;
 
@@ -132,10 +132,10 @@
                 }
 
                 // Check for a 4-digit agency number
-                const agencyMatch = line.match(/^\d{4}$/);
+                const agencyMatch = line.match(/\b\d{4}\b/);
                 if (agencyMatch) {
                     agencyId = agencyMatch[0];
-                    break; // Found agency ID, no need to look for names
+                    break; 
                 }
 
                 // Assume anything else with only letters is a name part
@@ -150,8 +150,11 @@
             }
 
             if (nameParts.length >= 2) {
-                // Take the first two parts as first and last name
+                // Join the first two identified name parts
                 return `${nameParts[0]} ${nameParts[1]}`;
+            } else if (nameParts.length === 1) {
+                // If only one name part is found, it's better than nothing
+                return nameParts[0];
             }
             
             return null;
