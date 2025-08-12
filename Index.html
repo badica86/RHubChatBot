@@ -6,8 +6,8 @@
     <title>Breaks Report</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Tesseract.js for OCR -->
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <!-- jsQR library for QR code scanning -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         #video-container {
@@ -23,21 +23,10 @@
             width: 100%;
             height: auto;
             display: block;
+            transform: scaleX(-1); /* Mirror the front-facing camera */
         }
         .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #3498db; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* Style for the guide box overlay */
-        #guide-box {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            width: 60%;
-            height: 40%;
-            border: 4px solid #4ade80;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
-            border-radius: 0.75rem;
-        }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4" style="background-color: #003B25;">
@@ -46,7 +35,6 @@
         <!-- Views will be rendered here -->
     </div>
     
-    <!-- Hidden canvas for capturing video frames -->
     <canvas id="capture-canvas" class="hidden"></canvas>
 
     <script>
@@ -54,144 +42,68 @@
         const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxtHwLLd4RHT23EZjmKtcwuyDpDqSCwTZmcMHlasIzV9qHsCx30rmcqAtYDKw5nmft5g/exec';
 
         const appContainer = document.getElementById('app-container');
-        let ocrWorker = null;
         let videoStream = null;
-        let currentAction = ''; // 'Start Break' or 'End Break'
+        let scanAnimation = null;
 
-        // --- CORE OCR LOGIC ---
-        async function initializeOCR() {
-            renderLoadingView('Preparing camera...');
-            if (!ocrWorker) {
-                try {
-                    ocrWorker = await Tesseract.createWorker('eng');
-                } catch (error) {
-                    renderErrorView('Could not initialize OCR engine.');
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        function stopOCR() {
-            if (ocrWorker) {
-                ocrWorker.terminate();
-                ocrWorker = null;
-            }
-        }
-
+        // --- CORE SCANNING LOGIC ---
         function stopCamera() {
             if (videoStream) {
                 videoStream.getTracks().forEach(track => track.stop());
                 videoStream = null;
             }
+            if (scanAnimation) {
+                cancelAnimationFrame(scanAnimation);
+                scanAnimation = null;
+            }
         }
 
-        async function startScan() {
-            const isReady = await initializeOCR();
-            if (!isReady) return;
-
-            renderScannerView();
+        async function startScan(action) {
+            renderScannerView(action);
             
             const video = document.getElementById('video');
+            const canvas = document.getElementById('capture-canvas');
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+
             try {
                 videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
                 video.srcObject = videoStream;
-                video.play();
+                video.onloadedmetadata = () => {
+                    video.play();
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    scanQRCode(video, canvas, context, action);
+                };
             } catch (err) {
-                renderErrorView('Could not access camera. Please grant permission and try again.');
+                renderErrorView('Could not access camera. Please grant permission.');
             }
         }
 
-        async function captureAndRecognize() {
-            const video = document.getElementById('video');
-            const canvas = document.getElementById('capture-canvas');
-            const guideBox = document.getElementById('guide-box');
-            if (!videoStream || !ocrWorker) return;
+        function scanQRCode(video, canvas, context, action) {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+            });
 
-            renderLoadingView('Processing image...');
-
-            const videoRect = video.getBoundingClientRect();
-            const guideRect = guideBox.getBoundingClientRect();
-
-            const scaleX = video.videoWidth / videoRect.width;
-            const scaleY = video.videoHeight / videoRect.height;
-
-            const cropX = (guideRect.left - videoRect.left) * scaleX;
-            const cropY = (guideRect.top - videoRect.top) * scaleY;
-            const cropWidth = guideRect.width * scaleX;
-            const cropHeight = guideRect.height * scaleY;
-            
-            canvas.width = cropWidth;
-            canvas.height = cropHeight;
-            
-            canvas.getContext('2d').drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-            
-            stopCamera();
-
-            try {
-                const recognitionPromise = ocrWorker.recognize(canvas);
-                const timeoutPromise = new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('OCR Timeout')), 15000)
-                );
-
-                const { data: { text } } = await Promise.race([recognitionPromise, timeoutPromise]);
-                
-                console.log("Raw OCR Text:", text);
-                const partnerId = parseText(text);
-
-                if (partnerId) {
-                    renderConfirmationView(partnerId);
-                } else {
-                    renderErrorView('Could not read a name or ID. Please try again.');
-                }
-            } catch (error) {
-                console.error("OCR Error:", error);
-                renderErrorView('Could not read text from the image. Please try again with better lighting.');
+            if (code) {
+                stopCamera();
+                submitBreak(code.data, action);
+            } else {
+                scanAnimation = requestAnimationFrame(() => scanQRCode(video, canvas, context, action));
             }
         }
-        
-        function parseText(text) {
-            const lines = text.split('\n').map(line => line.trim().replace(/[^a-zA-Z0-9\s]/g, '')).filter(Boolean);
-            let nameParts = [];
-            let agencyId = null;
-
-            for (const line of lines) {
-                const lowerLine = line.toLowerCase();
-                if (lowerLine.includes('magna park') || lowerLine === 'agency') {
-                    continue;
-                }
-
-                const agencyMatch = line.match(/\b\d{4}\b/);
-                if (agencyMatch) {
-                    agencyId = agencyMatch[0];
-                    break; 
-                }
-
-                const potentialNameParts = line.split(' ').filter(part => /^[A-Za-z]{2,}$/.test(part));
-                if (potentialNameParts.length > 0) {
-                    nameParts.push(...potentialNameParts);
-                }
-            }
-
-            if (agencyId) return `Agency ${agencyId}`;
-            if (nameParts.length >= 2) return `${nameParts[0]} ${nameParts[1]}`;
-            if (nameParts.length === 1) return nameParts[0];
-            return null;
-        }
-
 
         // --- BACKEND COMMUNICATION ---
-        async function submitBreak(partnerId) {
-            renderLoadingView('Logging break...');
+        async function submitBreak(partnerId, action) {
+            renderLoadingView(`Logging ${action.toLowerCase()} for ${partnerId}...`);
             try {
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
                     method: 'POST',
                     mode: 'cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({
-                        token: 'ocr-scan', 
                         partnerNumber: partnerId,
-                        action: currentAction
+                        action: action
                     })
                 });
                 const result = await response.json();
@@ -201,55 +113,38 @@
                     renderErrorView(result.message || 'An unknown error occurred.');
                 }
             } catch (error) {
-                renderErrorView('Network error. Could not submit break.');
+                renderErrorView('Network error. Could not log break.');
             }
         }
-
 
         // --- VIEW RENDERING ---
         function renderStartScreen() {
             stopCamera();
-            stopOCR();
             appContainer.innerHTML = `
                 <div class="text-center">
                     <h1 class="text-3xl font-bold text-gray-900">Breaks Report</h1>
                     <p class="mt-2 text-gray-600">Select an action to begin.</p>
                     <div class="mt-8 space-y-4">
-                        <button onclick="handleActionClick('Start Break')" class="w-full bg-green-500 text-white font-bold py-4 px-4 rounded-lg hover:bg-green-600 text-lg">Start Break</button>
-                        <button onclick="handleActionClick('End Break')" class="w-full bg-red-500 text-white font-bold py-4 px-4 rounded-lg hover:bg-red-600 text-lg">End Break</button>
+                        <button onclick="startScan('Start Break')" class="w-full bg-green-500 text-white font-bold py-4 px-4 rounded-lg hover:bg-green-600 text-lg">Start Break</button>
+                        <button onclick="startScan('End Break')" class="w-full bg-red-500 text-white font-bold py-4 px-4 rounded-lg hover:bg-red-600 text-lg">End Break</button>
                     </div>
                 </div>
             `;
         }
 
-        function renderScannerView() {
+        function renderScannerView(action) {
             appContainer.innerHTML = `
                 <div class="text-center">
-                    <h1 class="text-2xl font-bold text-gray-900">Scan Partner Card</h1>
-                    <p class="mt-1 text-gray-500">Position the ID inside the box and tap below.</p>
+                    <h1 class="text-2xl font-bold text-gray-900">${action}</h1>
+                    <p class="mt-1 text-gray-500">Show your QR code to the camera.</p>
                     <div id="video-container" class="my-4">
                         <video id="video" muted playsinline></video>
-                        <div id="guide-box"></div>
                     </div>
-                    <button onclick="captureAndRecognize()" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 text-lg">Take Photo</button>
-                    <button onclick="renderStartScreen()" class="mt-4 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
-                </div>
-            `;
-        }
-
-        function renderConfirmationView(partnerId) {
-             appContainer.innerHTML = `
-                <div class="text-center">
-                    <h1 class="text-2xl font-bold text-gray-900">Confirm Information</h1>
-                    <div class="my-6 p-4 bg-gray-100 rounded-lg">
-                        <p class="text-gray-600">Detected ID:</p>
-                        <p class="text-2xl font-bold text-indigo-600">${partnerId}</p>
+                    <div class="flex items-center justify-center text-gray-600">
+                        <div class="loader mr-2"></div>
+                        <span>Scanning...</span>
                     </div>
-                    <p class="mb-6 text-gray-600">Is this correct?</p>
-                    <div class="space-y-4">
-                        <button onclick="submitBreak('${partnerId}')" class="w-full bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700">Yes, Log Break</button>
-                        <button onclick="startScan()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300">No, Scan Again</button>
-                    </div>
+                    <button onclick="renderStartScreen()" class="mt-6 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
                 </div>
             `;
         }
@@ -262,7 +157,7 @@
                     <p class="mt-2 text-gray-600">${message}</p>
                 </div>
             `;
-            setTimeout(renderStartScreen, 2500);
+            setTimeout(renderStartScreen, 2000);
         }
 
         function renderErrorView(message) {
@@ -285,13 +180,6 @@
             `;
         }
 
-        // --- EVENT HANDLERS ---
-        window.handleActionClick = (action) => {
-            currentAction = action;
-            startScan();
-        };
-
-
         // --- INITIALIZATION ---
         window.onload = () => {
             renderStartScreen();
@@ -299,7 +187,6 @@
         
         window.onbeforeunload = () => {
             stopCamera();
-            stopOCR();
         };
 
     </script>
