@@ -26,6 +26,18 @@
         }
         .loader { border: 4px solid #f3f3f3; border-radius: 50%; border-top: 4px solid #3498db; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Style for the guide box overlay */
+        #guide-box {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            height: 40%;
+            border: 4px solid #4ade80;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+            border-radius: 0.75rem;
+        }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4" style="background-color: #003B25;">
@@ -33,6 +45,9 @@
     <div id="app-container" class="w-full max-w-sm mx-auto bg-white rounded-2xl shadow-xl p-8">
         <!-- Views will be rendered here -->
     </div>
+    
+    <!-- Hidden canvas for capturing video frames -->
+    <canvas id="capture-canvas" class="hidden"></canvas>
 
     <script>
         // --- CONFIGURATION ---
@@ -42,7 +57,6 @@
         let ocrWorker = null;
         let videoStream = null;
         let currentAction = ''; // 'Start Break' or 'End Break'
-        let scanInterval = null; // To control the scanning frequency
 
         // --- CORE OCR LOGIC ---
         async function initializeOCR() {
@@ -59,10 +73,6 @@
         }
 
         function stopOCR() {
-            if (scanInterval) {
-                clearInterval(scanInterval);
-                scanInterval = null;
-            }
             if (ocrWorker) {
                 ocrWorker.terminate();
                 ocrWorker = null;
@@ -86,29 +96,57 @@
             try {
                 videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
                 video.srcObject = videoStream;
-                video.onloadedmetadata = () => {
-                    video.play();
-                    scanInterval = setInterval(() => recognizeText(video), 2500); // Scan every 2.5 seconds
-                };
+                video.play();
             } catch (err) {
                 renderErrorView('Could not access camera. Please grant permission and try again.');
             }
         }
 
-        async function recognizeText(video) {
+        async function captureAndRecognize() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('capture-canvas');
+            const guideBox = document.getElementById('guide-box');
             if (!videoStream || !ocrWorker) return;
 
+            renderLoadingView('Processing image...');
+
+            const videoRect = video.getBoundingClientRect();
+            const guideRect = guideBox.getBoundingClientRect();
+
+            const scaleX = video.videoWidth / videoRect.width;
+            const scaleY = video.videoHeight / videoRect.height;
+
+            const cropX = (guideRect.left - videoRect.left) * scaleX;
+            const cropY = (guideRect.top - videoRect.top) * scaleY;
+            const cropWidth = guideRect.width * scaleX;
+            const cropHeight = guideRect.height * scaleY;
+            
+            canvas.width = cropWidth;
+            canvas.height = cropHeight;
+            
+            canvas.getContext('2d').drawImage(video, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+            
+            stopCamera();
+
             try {
-                const { data: { text } } = await ocrWorker.recognize(video);
+                const recognitionPromise = ocrWorker.recognize(canvas);
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('OCR Timeout')), 15000)
+                );
+
+                const { data: { text } } = await Promise.race([recognitionPromise, timeoutPromise]);
+                
+                console.log("Raw OCR Text:", text);
                 const partnerId = parseText(text);
 
                 if (partnerId) {
-                    stopCamera();
-                    stopOCR();
                     renderConfirmationView(partnerId);
+                } else {
+                    renderErrorView('Could not read a name or ID. Please try again.');
                 }
             } catch (error) {
                 console.error("OCR Error:", error);
+                renderErrorView('Could not read text from the image. Please try again with better lighting.');
             }
         }
         
@@ -144,15 +182,6 @@
 
         // --- BACKEND COMMUNICATION ---
         async function submitBreak(partnerId) {
-            if (!partnerId) {
-                // This case is for manual entry form
-                const partnerIdInput = document.getElementById('partner-id-manual');
-                partnerId = partnerIdInput.value;
-                if (!partnerId) {
-                    renderManualEntryView('Partner ID cannot be empty.');
-                    return;
-                }
-            }
             renderLoadingView('Logging break...');
             try {
                 const response = await fetch(GOOGLE_SCRIPT_URL, {
@@ -160,7 +189,7 @@
                     mode: 'cors',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({
-                        token: 'hybrid-scan', 
+                        token: 'ocr-scan', 
                         partnerNumber: partnerId,
                         action: currentAction
                     })
@@ -197,35 +226,12 @@
             appContainer.innerHTML = `
                 <div class="text-center">
                     <h1 class="text-2xl font-bold text-gray-900">Scan Partner Card</h1>
-                    <p class="mt-1 text-gray-500">Hold the card steady in the frame.</p>
+                    <p class="mt-1 text-gray-500">Position the ID inside the box and tap below.</p>
                     <div id="video-container" class="my-4">
                         <video id="video" muted playsinline></video>
+                        <div id="guide-box"></div>
                     </div>
-                    <div id="ocr-status" class="flex items-center justify-center text-gray-600">
-                        <div class="loader mr-2"></div>
-                        <span>Scanning for text...</span>
-                    </div>
-                    <div class="mt-6">
-                        <p class="text-sm text-gray-500 mb-2">Scan not working?</p>
-                        <button onclick="renderManualEntryView()" class="w-full bg-gray-200 text-gray-800 font-bold py-3 px-4 rounded-lg hover:bg-gray-300">Enter ID Manually</button>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function renderManualEntryView(errorMessage = '') {
-            stopCamera();
-            stopOCR();
-            appContainer.innerHTML = `
-                 <div class="text-center">
-                    <h1 class="text-2xl font-bold text-gray-900">Manual Entry</h1>
-                    <p class="mt-1 text-gray-500">Enter the Partner Name or Agency ID.</p>
-                    ${errorMessage ? `<div class="text-red-600 text-left mt-4 font-medium">${errorMessage}</div>` : ''}
-                    <div class="mt-6 text-left">
-                         <label for="partner-id-manual" class="block text-sm font-medium text-gray-700">Partner ID</label>
-                         <input type="text" id="partner-id-manual" class="mt-1 w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                    </div>
-                    <button onclick="submitBreak()" class="mt-6 w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700">Log ${currentAction}</button>
+                    <button onclick="captureAndRecognize()" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 text-lg">Take Photo</button>
                     <button onclick="renderStartScreen()" class="mt-4 text-sm text-gray-500 hover:text-gray-700">Cancel</button>
                 </div>
             `;
